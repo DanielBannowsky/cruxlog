@@ -110,6 +110,18 @@ Other things worth logging per session so the app can flag stalls/overtraining:
 - Flag a deload session-week automatically every 4th session-week of Strength Base or Power & Power-Endurance.
 - Surface a warning if pain/soreness is logged twice in a row (2 most recent sessions with a finger-status flag).
 - Flag a training-load spike using an acute:chronic workload ratio: last 7 days' total session count vs. the last 28 days' average weekly count. A ratio above 1.5 is the commonly cited danger zone (Gabbett, 2016, "The training—injury prevention paradox") where a sudden jump in volume — not the absolute volume itself — correlates with higher injury risk. This checks total session load, not just finger-intensity sessions, since sport-wide literature ties spikes in overall load (not just one modality) to injury risk.
+- Warm-up reminder before any hangboard max-hang session or any session logged at Hard/Max effort — a prompt to do 10-15 min of easy climbing plus a progressive load ramp (~50%→70%→90% of working intensity) before the first real attempt, since cold-tissue max effort is a well-documented pulley/tendon injury mechanism.
+- Pre-session readiness (sleep quality, general soreness) is logged alongside finger status. If the most recently logged readiness was poor sleep or general soreness *and* the next prescribed session is high-intensity (target RPE ≥8), the app surfaces a caution to swap in something lighter first.
+
+## Progression-accuracy features (implemented in the app's Plan/Progress tabs)
+
+- **RPE/intensity-mismatch flag.** Every session slot in the plan carries an intended target RPE (e.g. a volume day targets ~RPE 5-6, a max-hang or limit-bouldering day targets ~RPE 9). If you log a session at 2+ RPE points above what that slot called for, the app flags it as intensity creep — the mechanism by which "easy" days quietly become moderate, which is a well-known precursor to overreaching because it erodes the low-intensity recovery stimulus the hard days depend on.
+- **Progressive-overload plateau detection.** During Strength Base — the phase where the plan explicitly expects your max-hang and weighted pull-up numbers to climb — if your last 3 logged values for either metric are flat or falling, the app flags a plateau and prompts you to check technique, recovery, sleep, or nutrition before assuming you've hit a genuine ceiling.
+- **Stalled-grade cycle-back suggestion.** In Performance/Send, if your hardest send hasn't improved across your last 3 climbing sessions, the app surfaces this doc's own rule: cycle back into a 6-8 session-week strength block targeting your actual limiter before resuming projecting.
+- **Benchmark-gated phase transitions (Strength Base and Power only).** Reconditioning and Performance/Send are intentionally *not* gated — Reconditioning's exit is bounded by a tendon-adaptation timeline that a strength number can't shortcut (see the detraining/retraining note above), and Performance/Send's "exit" is plan completion, not a strength target. Strength Base and Power do have a measurable exit signal, so those phases hold open past their nominal length — up to 1.5× — until the benchmark is met:
+  - **Strength Base** exits once max hang ≥20% bodyweight *and* weighted pull-up ≥30% bodyweight (the V6-tier lower bound from the benchmark table above), or 12 session-weeks (1.5×8) pass regardless — a phase shouldn't run forever chasing one number.
+  - **Power & Power-Endurance** exits once you've sent target-grade-minus-3 or harder during the phase (a rough proxy that climbing-specific power is actually translating into sends), or 12 session-weeks pass regardless.
+  - If bodyweight isn't set, the Strength Base gate can't be evaluated and the app falls back to the nominal session-count transition rather than blocking indefinitely on missing data.
 
 ## Sources referenced
 
@@ -125,15 +137,25 @@ Other things worth logging per session so the app can flag stalls/overtraining:
 - Lattice Training — published grip-strength normative data and public periodization commentary.
 - Tyler Nelson / Camp4 Human Performance — tendon adaptation and finger-training-frequency commentary.
 - Gabbett, T.J. (2016). *The training—injury prevention paradox: should athletes be training smarter and harder?* British Journal of Sports Medicine. Source for the acute:chronic workload ratio (ACWR) concept behind the training-load spike guardrail.
+- Hubal, M.J. et al. (2005). *Variability in muscle size and strength gain after unilateral resistance training.* Medicine & Science in Sports & Exercise. Cited for the individual-response-variability limitation noted above — same training stimulus produces meaningfully different adaptation across individuals.
 
 **Caveat:** several of the above (Philippe et al., Schweizer & Hudek) are cited from memory of the general findings/thrust of published climbing-science literature — verify exact figures/years before quoting them anywhere user-facing. The protocols (López repeaters, Bechtel standards, Hörst/Anderson periodization) are well-established and widely reproduced in the climbing training community, but treat this doc as a first draft to sanity-check, not a peer-reviewed citation list.
 
 ## Resolved decisions
 
 - **Progression is session-driven, not calendar-driven** (was open question #2/#3): the app tracks a pointer through each phase's session list and only advances it when a session is logged. No auto-generated calendar schedule, no penalty for missed days — this directly answers "how do we handle missed sessions."
-- **Phase transitions are session-count-based**, not benchmark-based: a phase completes after its fixed number of session-weeks. Benchmark-based transitions (advance once grip-strength/pull-up targets are hit) would be more precise but are a future iteration, not MVP.
+- **Phase transitions are benchmark-gated for Strength Base and Power, session-count-based (with a hard cap) elsewhere** — see "Progression-accuracy features" above. This resolves the former open question in favor of the more precise approach, but only where a meaningful benchmark exists; Reconditioning and Performance/Send don't have one, so they stay time-based by design rather than faking precision.
+
+## Known limitations (honest self-assessment)
+
+Even with the above, this app is not a guarantee of the fastest possible path to V8 — a static rule-based tool structurally can't do everything a human coach or sports-medicine professional would:
+- **No individualization beyond the benchmark gates.** Training-response variability between individuals is well-documented (e.g. Hubal et al. 2005) — this app runs the same structure for everyone, adjusted only by the two benchmark gates above.
+- **No technique diagnostic.** Saul et al. (2019) found technical skill correlates with climbing performance independently of physical capacity. This app cannot tell you if footwork or movement economy — not strength — is your actual limiter.
+- **No nutrition or true sleep-quantity tracking**, only a coarse post-hoc sleep-quality/soreness tag per session.
+- **No mental/tactical layer** (fall practice, redpoint tactics, fear management) — a real factor in V6→V8 breakthroughs that this app doesn't address at all.
+- **Guardrail thresholds are population-level heuristics** (e.g. the 1.5× ACWR cutoff), not validated against your individual injury history — treat every flag as a prompt to think, not a diagnosis.
 
 ## Open questions
 
 1. Video-based technique feedback — in scope for a future version, or out of scope entirely for this app?
-2. Should hitting a Benchmarks target (see table above) actually shorten a phase, or just remain informational?
+2. Should the benchmark gates apply more strictly (block logging new sessions until met) or stay purely informational/soft as they are now?
