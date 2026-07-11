@@ -168,7 +168,7 @@
 <header>
   <div class="ladder" id="ladder"></div>
   <span class="wordmark">CRUXLOG</span>
-  <span class="goal mono">&rarr; V8</span>
+  <span class="goal mono" id="goalTag">&rarr; V8</span>
 </header>
 <main id="main"></main>
 <nav id="nav"></nav>
@@ -382,7 +382,8 @@ function detailOf(s){
   }
   if(s.type==="hang"){
     const h=s.hang||{}; const load=h.addedLb>0?`+${h.addedLb}lb`:h.addedLb<0?`${h.addedLb}lb`:"BW";
-    return `${h.protocol==="max"?"Max hang":"Repeaters"} · ${h.edge}mm · ${load} · ${h.sets}×`;
+    const grip=h.grip==="open"?"open":"half-crimp";
+    return `${h.protocol==="max"?"Max hang":"Repeaters"} · ${grip} · ${h.edge}mm · ${load} · ${h.sets}×`;
   }
   if(s.type==="lift"){
     const l=s.lift||{};
@@ -401,10 +402,10 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false, chartTap:null, editingId:null, planPosOpen:false };
 
 function blankForm(){
-  return { type:"climb", date:todayStr(), grades:[], protocol:"repeater", edge:20,
+  return { type:"climb", date:todayStr(), grades:[], protocol:"repeater", edge:20, grip:"half",
     addedLb:0, sets:5, entries:blankLiftEntries(), finger:null, effort:null, notes:"" };
 }
 function load(){
@@ -423,6 +424,7 @@ document.getElementById("ladder").innerHTML =
   GRADE_COLORS.map(c=>`<span style="background:${c}"></span>`).join("");
 
 function render(){
+  document.getElementById("goalTag").textContent = `→ V${store.settings.targetGrade??8}`;
   if(ui.tab==="plan") $main.innerHTML=renderPlan();
   else if(ui.tab==="log") $main.innerHTML=renderLog();
   else if(ui.tab==="history") $main.innerHTML=renderHistory();
@@ -448,6 +450,10 @@ function renderPlan(){
   const warnings=computeGuardrails(store);
   const pct=Math.min(100,Math.round((absWeek/TOTAL_WEEKS)*100));
   const complete = (store.progress||{}).completedCycle;
+  const lastSession=[...store.sessions].sort((a,b)=>a.date<b.date?1:-1)[0];
+  const daysSince = lastSession ? dayDiff(todayStr(),lastSession.date) : null;
+  const lastText = daysSince==null ? "No sessions logged yet" :
+    daysSince<=0 ? "Last session: today" : daysSince===1 ? "Last session: 1 day ago" : `Last session: ${daysSince} days ago`;
 
   const typeIcon={climb:I.climb,hang:I.hang,lift:I.lift};
 
@@ -482,6 +488,23 @@ function renderPlan(){
       <div style="height:6px;background:var(--panel2);border-radius:4px;margin-top:12px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px"></div></div>
       <div class="hint" style="margin-top:10px">${esc(phase.note)}</div>
+      <div class="hint" style="margin-top:8px">${esc(lastText)}</div>
+      ${ui.planPosOpen ? `<div class="stack" style="margin-top:10px">
+          <div class="stepper"><span class="lab">Phase</span>
+            <div class="ctl">
+              <button class="stepbtn" data-phasestep="-1">${I.minus}</button>
+              <span class="val" style="min-width:130px;font-size:13px">${esc(phase.name)}</span>
+              <button class="stepbtn" data-phasestep="1">${I.plus}</button>
+            </div></div>
+          <div class="stepper"><span class="lab">Week in phase</span>
+            <div class="ctl">
+              <button class="stepbtn" data-weekstep="-1">${I.minus}</button>
+              <span class="val">${weekInPhase} / ${phase.weeks}</span>
+              <button class="stepbtn" data-weekstep="1">${I.plus}</button>
+            </div></div>
+          <button class="btn2" data-planpos="close" style="margin:0">Done</button>
+        </div>`
+      : `<div class="hint" style="margin-top:8px"><span data-planpos="toggle" style="text-decoration:underline;cursor:pointer">Not on this phase/week? Adjust</span></div>`}
     </div>
     ${isDeload?`<div class="field"><div style="background:#22303A;color:var(--accent);border-radius:12px;padding:12px 14px;font-size:13px;">Deload week — halve hangboard/lift volume, keep climbing light.</div></div>`:""}
     ${warnBlock}
@@ -519,9 +542,12 @@ function renderLog(){
       <div class="hint">Tap to add a send · long-press or right-click to remove one</div></div>`;
   } else if(f.type==="hang"){
     body=`<div class="field"><div class="flabel">Hangboard</div>
-      <div class="seg" style="margin-bottom:16px" data-seg="protocol">
+      <div class="seg" style="margin-bottom:10px" data-seg="protocol">
         <button data-val="repeater" class="${f.protocol==="repeater"?"on":""}">Repeaters</button>
         <button data-val="max" class="${f.protocol==="max"?"on":""}">Max hang</button></div>
+      <div class="seg" style="margin-bottom:16px" data-seg="grip">
+        <button data-val="half" class="${f.grip==="half"?"on":""}">Half-crimp</button>
+        <button data-val="open" class="${f.grip==="open"?"on":""}">Open hand</button></div>
       <div class="stack">
         ${stepper("Edge","edge",f.edge,"mm")}
         ${stepper("Added load","addedLb",f.addedLb,"lb")}
@@ -547,10 +573,13 @@ function renderLog(){
     <textarea class="notes" id="notes" rows="2" placeholder="beta, conditions, how it felt…">${esc(f.notes)}</textarea></div>`;
 
   const ok=valid();
+  const editing=!!ui.editingId;
   const saveBtn=`<button class="save ${ui.flash?"flash":ok?"ready":""}" id="save">
-    ${ui.flash?I.check+"Logged":"Save session"}</button>`;
+    ${ui.flash?I.check+(editing?"Updated":"Logged"):(editing?"Update session":"Save session")}</button>
+    ${editing?`<div class="hint" style="text-align:center;margin-top:10px"><span id="cancelEdit" style="text-decoration:underline;cursor:pointer">Cancel edit</span></div>`:""}`;
 
   return errBanner()+`
+    ${editing?`<div class="hint" style="margin-bottom:10px">Editing a past session — saving will overwrite it instead of logging a new one.</div>`:""}
     <div class="seg" data-seg="type">
       <button data-val="climb" class="${f.type==="climb"?"on":""}">${I.climb}Climb</button>
       <button data-val="hang" class="${f.type==="hang"?"on":""}">${I.hang}Hang</button>
@@ -599,7 +628,7 @@ function renderHistory(){
   const icon={climb:I.climb,hang:I.hang,lift:I.lift};
   return errBanner()+list.map(s=>{
     const f=s.finger?FINGER[s.finger]:null;
-    return `<div class="hcard">
+    return `<div class="hcard" data-edit="${s.id}" style="cursor:pointer">
       <div class="hhead">
         <span class="hicon">${icon[s.type]}</span>
         <span class="type">${s.type}</span>
@@ -612,7 +641,7 @@ function renderHistory(){
       <div class="hdetail">${esc(detailOf(s))}</div>
       ${s.notes?`<div class="hnotes">${esc(s.notes)}</div>`:""}
     </div>`;
-  }).join("");
+  }).join("")+`<div class="hint" style="text-align:center;margin-top:6px">Tap a session to edit it</div>`;
 }
 
 function renderProgress(){
@@ -635,6 +664,14 @@ function renderProgress(){
       ${stat("Climbs logged",climbs)}
       ${stat("Hardest send",hv,hc)}
     </div>
+    <div class="field"><div class="flabel">Target grade</div>
+      <div class="stepper"><span class="lab">Goal</span>
+        <div class="ctl">
+          <button class="stepbtn" data-tstep="-1">${I.minus}</button>
+          <span class="val">V${store.settings.targetGrade??8}</span>
+          <button class="stepbtn" data-tstep="1">${I.plus}</button>
+        </div></div></div>
+    ${renderGradeChart()}
     ${renderBenchmarks()}
     <button class="btn2 ${ui.copied?"flash":""}" id="export">
       ${ui.copied?I.check+"Copied to clipboard":I.copy+"Export for Claude"}</button>
@@ -651,6 +688,71 @@ function renderProgress(){
     <div class="note">Export copies a compact CSV to paste into a chat for check-ins. Backup saves a full copy of your log to Files — keep one now and then, since app data lives only on this device.</div>`;
 }
 
+/* ---- small inline charts (no deps) ---- */
+function sparkline(values,opts={}){
+  if(!values||values.length<2) return "";
+  const w=opts.width||90, h=opts.height||28;
+  const min=opts.min??Math.min(...values), max=opts.max??Math.max(...values);
+  const range=(max-min)||1;
+  const stepX=w/(values.length-1);
+  const pts=values.map((v,i)=>[+(i*stepX).toFixed(1), +(h-((v-min)/range)*h).toFixed(1)]);
+  const d="M"+pts.map(p=>p.join(",")).join(" L");
+  const last=pts[pts.length-1];
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:${w}px;height:${h}px;overflow:visible;flex-shrink:0">
+    <path d="${d}" fill="none" stroke="${opts.color||"var(--accent)"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="2.5" fill="${opts.color||"var(--accent)"}"/>
+  </svg>`;
+}
+function gradeHistory(){
+  const climbs=[...store.sessions].filter(s=>s.type==="climb"&&(s.grades||[]).length)
+    .sort((a,b)=>a.date<b.date?-1:1);
+  let running=-1; const pts=[];
+  climbs.forEach(s=>{
+    const mx=Math.max(...s.grades);
+    if(mx>running) running=mx;
+    pts.push({date:s.date, grade:running});
+  });
+  return pts;
+}
+function renderGradeChart(){
+  const pts=gradeHistory();
+  const target=store.settings.targetGrade??8;
+  if(pts.length<2) return `<div class="field"><div class="flabel">Progress toward V${target}</div>
+    <div class="stack"><div class="hint">Log a few more climbing sessions with grades to see your progression here.</div></div></div>`;
+  const w=300,h=120,padL=22,padR=10,padT=10,padB=18;
+  const plotW=w-padL-padR, plotH=h-padT-padB;
+  const domainMax=Math.max(10,target);
+  const y=v=> padT + (domainMax-v)/domainMax*plotH;
+  const x=i=> padL + i*(plotW/(pts.length-1));
+  let d=`M ${x(0).toFixed(1)} ${y(pts[0].grade).toFixed(1)}`;
+  for(let i=1;i<pts.length;i++){ d+=` H ${x(i).toFixed(1)} V ${y(pts[i].grade).toFixed(1)}`; }
+  const grid=[0,2,4,6,8,10].filter(v=>v<=domainMax).map(v=>
+    `<line x1="${padL}" x2="${w-padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+     <text x="2" y="${(y(v)+3).toFixed(1)}" font-size="8" fill="var(--faint)">V${v}</text>`).join("");
+  const targetY=y(target);
+  const last=pts[pts.length-1];
+  const tapCircles=pts.map((p,i)=>
+    `<circle cx="${x(i).toFixed(1)}" cy="${y(p.grade).toFixed(1)}" r="9" fill="transparent" data-chartpt="${i}" style="cursor:pointer"/>`).join("");
+  const tapInfo = (ui.chartTap!=null && pts[ui.chartTap])
+    ? `<div class="hint" style="margin-top:6px">${prettyDate(pts[ui.chartTap].date)} · hardest so far V${pts[ui.chartTap].grade}</div>` : "";
+  return `<div class="field"><div class="flabel">Progress toward V${target} · tap a point</div>
+    <div class="stack">
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">
+        ${grid}
+        <line x1="${padL}" x2="${w-padR}" y1="${targetY.toFixed(1)}" y2="${targetY.toFixed(1)}" stroke="var(--faint)" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="${w-padR}" y="${(targetY-4).toFixed(1)}" font-size="8" fill="var(--faint)" text-anchor="end">Target V${target}</text>
+        <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${x(pts.length-1).toFixed(1)}" cy="${y(last.grade).toFixed(1)}" r="3" fill="var(--accent)"/>
+        <text x="${x(pts.length-1).toFixed(1)}" y="${(y(last.grade)-8).toFixed(1)}" font-size="10" font-weight="800" fill="var(--ink)" text-anchor="end">V${last.grade}</text>
+        ${tapCircles}
+      </svg>
+      <div class="hint" style="display:flex;justify-content:space-between">
+        <span>${prettyDate(pts[0].date)}</span><span>${prettyDate(last.date)}</span>
+      </div>
+      ${tapInfo}
+    </div></div>`;
+}
+
 /* ---- benchmarks: grip strength / pull-up ratios vs plan targets ---- */
 const BENCH_TARGETS = {
   hang:[["V3–V4","0–10%"],["V6","20–30%"],["V8","40–50%+"]],
@@ -660,6 +762,9 @@ function latestBenchmark(metric){
   const list=(store.benchmarks||[]).filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?1:-1);
   return list[0]||null;
 }
+function benchTrend(metric){
+  return [...(store.benchmarks||[])].filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?-1:1).map(b=>b.value);
+}
 function renderBenchmarks(){
   const bw=store.settings.bodyweight;
   const hang=latestBenchmark("hang"), pull=latestBenchmark("pull");
@@ -667,12 +772,12 @@ function renderBenchmarks(){
   return `<div class="field"><div class="flabel">Benchmarks</div>
     <div class="stack" style="margin-bottom:10px">
       <div class="stepper"><span class="lab">Bodyweight (lb)</span>
-        <input class="numin" id="bw" style="width:70px" inputmode="decimal" value="${bw??""}" placeholder="lb"></div>
+        <div class="ctl">${sparkline(benchTrend("bodyweight"))}<input class="numin" id="bw" style="width:70px" inputmode="decimal" value="${bw??""}" placeholder="lb"></div></div>
       <div class="stepper"><span class="lab">Max hang add (20mm,10s)</span>
-        <div class="ctl"><input class="numin" id="benchHang" style="width:70px" inputmode="decimal"
+        <div class="ctl">${sparkline(benchTrend("hang"))}<input class="numin" id="benchHang" style="width:70px" inputmode="decimal"
           placeholder="lb" value="${hang?hang.value:""}"><span class="val" style="min-width:40px">${ratio(hang?.value)}</span></div></div>
       <div class="stepper"><span class="lab">Max weighted pull-up</span>
-        <div class="ctl"><input class="numin" id="benchPull" style="width:70px" inputmode="decimal"
+        <div class="ctl">${sparkline(benchTrend("pull"))}<input class="numin" id="benchPull" style="width:70px" inputmode="decimal"
           placeholder="lb" value="${pull?pull.value:""}"><span class="val" style="min-width:40px">${ratio(pull?.value)}</span></div></div>
       <button class="btn2" id="logBench" style="margin:4px 0 0">Log today's numbers</button>
     </div>
@@ -698,14 +803,33 @@ function bumpGrade(g,d){
   const out=[]; Object.keys(c).forEach(k=>{ for(let i=0;i<c[k];i++)out.push(Number(k)); });
   f.grades=out;
 }
+function loadSessionIntoForm(sess){
+  const f=blankForm();
+  f.type=sess.type; f.date=sess.date; f.notes=sess.notes||"";
+  f.finger=sess.finger||null;
+  f.effort=EFFORT.find(e=>e.rpe===sess.rpe)?.key || null;
+  if(sess.type==="climb") f.grades=[...(sess.grades||[])];
+  if(sess.type==="hang"){
+    const h=sess.hang||{};
+    f.protocol=h.protocol||"repeater"; f.edge=h.edge??20; f.addedLb=h.addedLb??0; f.sets=h.sets??5; f.grip=h.grip||"half";
+  }
+  if(sess.type==="lift"){
+    const saved=(sess.lift||{}).entries||{};
+    LIFT_DAY.forEach(L=>{
+      const rows=saved[L.key]||[];
+      f.entries[L.key]=Array.from({length:L.sets},(_,i)=>rows[i]?{weight:rows[i].weight,reps:rows[i].reps,amrap:!!rows[i].amrap}:{weight:"",reps:"",amrap:false});
+    });
+  }
+  return f;
+}
 function commitSave(){
   if(!valid())return;
   const f=ui.form;
-  const s={id:uid(),date:f.date,type:f.type,notes:f.notes.trim()};
+  const s={id:ui.editingId||uid(),date:f.date,type:f.type,notes:f.notes.trim()};
   if(f.effort) s.rpe=EFFORT.find(e=>e.key===f.effort)?.rpe;
   if(f.type!=="lift") s.finger=f.finger;
   if(f.type==="climb") s.grades=[...f.grades];
-  if(f.type==="hang") s.hang={protocol:f.protocol,edge:f.edge,addedLb:f.addedLb,sets:f.sets};
+  if(f.type==="hang") s.hang={protocol:f.protocol,edge:f.edge,addedLb:f.addedLb,sets:f.sets,grip:f.grip};
   if(f.type==="lift"){
     const entries={};
     LIFT_DAY.forEach(L=>{
@@ -714,8 +838,16 @@ function commitSave(){
     });
     s.lift={entries};
   }
-  store.sessions.push(s); advanceProgress(); save();
+  const editing=!!ui.editingId;
+  if(editing){
+    const idx=store.sessions.findIndex(x=>x.id===ui.editingId);
+    if(idx>=0) store.sessions[idx]=s; else store.sessions.push(s);
+  } else {
+    store.sessions.push(s); advanceProgress();
+  }
+  save();
   const keepType=f.type, keepDate=f.date;
+  ui.editingId=null;
   ui.form=blankForm(); ui.form.type=keepType; ui.form.date=keepDate;
   ui.flash=true; render();
   setTimeout(()=>{ ui.flash=false; render(); },1400);
@@ -723,7 +855,11 @@ function commitSave(){
 
 function wire(){
   // nav
-  $nav.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{ ui.tab=b.dataset.tab; render(); });
+  $nav.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{
+    const t=b.dataset.tab;
+    if(t==="log" && ui.editingId){ ui.editingId=null; ui.form=blankForm(); }
+    ui.tab=t; render();
+  });
 
   // segmented (type / protocol / day)
   $main.querySelectorAll("[data-seg]").forEach(seg=>{
@@ -775,8 +911,10 @@ function wire(){
   const nt=$main.querySelector("#notes"); if(nt) nt.oninput=e=>{ ui.form.notes=e.target.value; };
   // save
   const sv=$main.querySelector("#save"); if(sv) sv.onclick=commitSave;
+  const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=blankForm(); render(); };
   // history delete — two-tap confirm (iOS standalone PWAs suppress window.confirm)
-  $main.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+  $main.querySelectorAll("[data-del]").forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation();
     const id=b.dataset.del;
     if(ui.confirmDel===id){
       store.sessions=store.sessions.filter(x=>x.id!==id); ui.confirmDel=null; save(); render();
@@ -786,9 +924,15 @@ function wire(){
       ui._delTimer=setTimeout(()=>{ if(ui.confirmDel===id){ ui.confirmDel=null; render(); } },4000);
     }
   });
+  // history card tap -> edit
+  $main.querySelectorAll("[data-edit]").forEach(card=>card.onclick=()=>{
+    const s=store.sessions.find(x=>x.id===card.dataset.edit); if(!s)return;
+    ui.editingId=s.id; ui.form=loadSessionIntoForm(s); ui.tab="log"; render();
+  });
   // plan tab
   const lt=$main.querySelector("#logToday"); if(lt) lt.onclick=()=>{
     const next=currentProgress().next;
+    ui.editingId=null;
     ui.form=blankForm(); ui.form.type=next.type;
     if(next.protocol) ui.form.protocol=next.protocol;
     ui.tab="log"; render();
@@ -798,6 +942,19 @@ function wire(){
     const i=+row.dataset.setslot, cur=currentProgress();
     store.progress={phaseIdx:cur.phaseIdx, weekInPhase:cur.weekInPhase, slot:i};
     ui.planDetailOpen=false; save(); render();
+  });
+  // manual phase/week override
+  const pp=$main.querySelector('[data-planpos="toggle"]'); if(pp) pp.onclick=()=>{ ui.planPosOpen=true; render(); };
+  const ppc=$main.querySelector('[data-planpos="close"]'); if(ppc) ppc.onclick=()=>{ ui.planPosOpen=false; render(); };
+  $main.querySelectorAll("[data-phasestep]").forEach(b=>b.onclick=()=>{
+    const dir=+b.dataset.phasestep, cur=currentProgress();
+    const newIdx=Math.max(0,Math.min(PHASES.length-1,cur.phaseIdx+dir));
+    store.progress={phaseIdx:newIdx, weekInPhase:1, slot:0}; save(); render();
+  });
+  $main.querySelectorAll("[data-weekstep]").forEach(b=>b.onclick=()=>{
+    const dir=+b.dataset.weekstep, cur=currentProgress();
+    const newWk=Math.max(1,Math.min(cur.phase.weeks,cur.weekInPhase+dir));
+    store.progress={phaseIdx:cur.phaseIdx, weekInPhase:newWk, slot:0}; save(); render();
   });
   // progress buttons
   const ex=$main.querySelector("#export"); if(ex) ex.onclick=doExport;
@@ -810,7 +967,9 @@ function wire(){
   // benchmarks
   const bw=$main.querySelector("#bw"); if(bw) bw.onchange=e=>{
     const v=e.target.value===""?null:Number(e.target.value);
-    store.settings.bodyweight=v; save(); render();
+    store.settings.bodyweight=v;
+    if(v!=null){ store.benchmarks=store.benchmarks||[]; store.benchmarks.push({id:uid(),date:todayStr(),metric:"bodyweight",value:v}); }
+    save(); render();
   };
   const lb=$main.querySelector("#logBench"); if(lb) lb.onclick=()=>{
     const hv=$main.querySelector("#benchHang").value, pv=$main.querySelector("#benchPull").value;
@@ -820,6 +979,14 @@ function wire(){
     if(pv!=="") store.benchmarks.push({id:uid(),date:d,metric:"pull",value:Number(pv)});
     save(); render();
   };
+  // target grade
+  $main.querySelectorAll("[data-tstep]").forEach(b=>b.onclick=()=>{
+    const dir=+b.dataset.tstep;
+    store.settings.targetGrade=Math.max(4,Math.min(14,(store.settings.targetGrade??8)+dir));
+    save(); render();
+  });
+  // grade chart tap
+  $main.querySelectorAll("[data-chartpt]").forEach(c=>c.onclick=()=>{ ui.chartTap=+c.dataset.chartpt; render(); });
 }
 
 function updateSaveBtn(){
