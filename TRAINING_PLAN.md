@@ -1,16 +1,18 @@
-# CruxLog Training Plan — V3 → V8
+# CruxLog Training Plan — V4 → V8
 
 Draft v2. Now wired into the app (Plan tab). Progression is **session-driven, not calendar-driven** — the app advances one step through each phase's session list only when you actually log a session. Miss a day, take a week off, do sessions out of order — nothing is penalized, the plan just waits at the same spot.
 
 ## Athlete profile (assumptions baked into this draft)
 
-- Current level: consistent V3
+- Current level: **comfortable/consistent V4** (not a limit grade — you flash or quickly send most V4s), revised up from an initial "consistent V3" estimate
 - Training history: **returning after a ~2 year layoff**, not a true beginner — connective tissue and motor patterns are de-trained but "muscle memory" and technique recall return faster than raw tissue capacity
 - Access: full — hangboard, weights/pulley system, climbing gym
 - No current injuries
 - Self-assessed limiter: general strength deficit from time off, not a single specific weakness
 
-This last point matters most for sequencing. The literature on detraining and retraining is consistent: **cardiovascular and tendon/connective-tissue adaptations decay and must be rebuilt gradually, while neuromuscular skill (technique, movement reading) returns quickly** (Mujika & Padilla, 2000, "Detraining: Loss of Training-Induced Physiological and Performance Adaptations"). Practical implication: don't jump straight into max hangs or heavy limit bouldering in week 1 just because you remember how V5/V6 movement feels — tendons need ~4-6 weeks of progressive reloading before they can safely handle near-max finger loads again (Tyler Nelson / Camp4 Human Performance, tendon adaptation timeline commentary).
+This last point matters most for sequencing. The literature on detraining and retraining is consistent: **cardiovascular and tendon/connective-tissue adaptations decay and must be rebuilt gradually, while neuromuscular skill (technique, movement reading) returns quickly** (Mujika & Padilla, 2000, "Detraining: Loss of Training-Induced Physiological and Performance Adaptations"). Practical implication: don't jump straight into max hangs or heavy limit bouldering in week 1 just because you remember how V6/V7 movement feels — tendons need ~4-6 weeks of progressive reloading before they can safely handle near-max finger loads again (Tyler Nelson / Camp4 Human Performance, tendon adaptation timeline commentary).
+
+**Important distinction:** the grade caps below control *tendon/connective-tissue loading* (avoiding near-max finger stress and limit attempts), not climbing difficulty for its own sake. If a grade is comfortable rather than a limit effort, climbing it for volume doesn't violate the reconditioning principle — so "volume day" ranges below are set relative to your comfortable ceiling (V4), not an arbitrary low number.
 
 ## Guiding principles (and where they come from)
 
@@ -29,21 +31,21 @@ This is aggressive but realistic *given the "rebuilding" starting point* — som
 
 ### Phase 0 — Reconditioning (4 session-weeks)
 **Goal:** rebuild tendon tolerance, general work capacity, and movement fluency before loading anything near-max.
-- Climbing: 3 sessions/session-week, volume-focused. Mostly V0–V3, high volume, easy angles, focus on precise footwork and quiet hands. One of these is ARC-style (Aerobic Restoration & Capillarity, per Hörst) traversing/easy bouldering for 20-30 min continuous movement.
+- Climbing: 3 sessions/session-week, volume-focused. V1–V4 — up to your comfortable ceiling is fine, the constraint is volume/footwork focus and no *limit* attempts, not an arbitrarily low grade cap. High volume, easy-to-moderate angles, focus on precise footwork and quiet hands. One of these is ARC-style (Aerobic Restoration & Capillarity, per Hörst) traversing/easy bouldering for 20-30 min continuous movement.
 - Hangboard: **repeaters only**, moderate edge (~20mm), bodyweight, Eva López beginner protocol (7s hang / 3s rest x 6, 3 min between sets, 2 sets per grip type), 2 sessions/session-week, never on consecutive sessions.
 - Weights: **1 session/session-week** — see Lift Day Protocol below, light load.
 - No limit bouldering, no max hangs, no campus board this phase.
 
 ### Phase 1 — Strength Base (8 session-weeks)
 **Goal:** build the max-strength ceiling (fingers + pull) that later power work will convert into hard moves.
-- Climbing: 3 sessions/session-week — a volume day, a "limit" session at V4-V5 (movement is allowed to be ugly — goal is exposure to harder holds/angles, not sends), and a volume/ARC day.
+- Climbing: 3 sessions/session-week — a volume day (V1-V5), a "limit" session at V5-V6 (above your comfortable V4 ceiling — movement is allowed to be ugly, goal is exposure to harder holds/angles, not sends), and a volume/ARC day.
 - Hangboard: progress to **max hangs**, 10s hang / 3 min rest x 5-6 sets, added or removed weight to hit near-max effort on a ~20mm edge, 1 session/session-week (Eva López / Lattice max-hang protocol). Plus 1 repeater session/session-week for tendon durability.
 - Weights: **1 session/session-week** — see Lift Day Protocol below, progressive overload.
 - Deload every 4th session-week: halve hangboard/lift volume, keep climbing light.
 
 ### Phase 2 — Power & Power-Endurance (8 session-weeks)
 **Goal:** convert raw strength into climbing-specific power (dynamic movement, campus-board coordination) and the ability to link hard moves (power-endurance).
-- Climbing: 3 sessions/session-week — a limit-bouldering session (V5-V6, low volume, full rest between attempts, hard single moves), a power-endurance session (4x4s or linked boulder circuits at V3-V4, minimal rest), and a volume/campus day.
+- Climbing: 3 sessions/session-week — a limit-bouldering session (V6-V7, low volume, full rest between attempts, hard single moves), a power-endurance session (4x4s or linked boulder circuits at V4-V5, minimal rest), and a volume/campus day.
 - Hangboard: 1 maintenance session/session-week (same near-max load, fewer sets — you're not chasing new max-hang PRs this phase).
 - Weights: **1 session/session-week** — see Lift Day Protocol below, maintenance load, no new PRs.
 - Deload every 4th session-week as before.
