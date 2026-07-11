@@ -341,6 +341,21 @@ function computeGuardrails(store){
   } else if(painTrail.length===2 && painTrail.every(s=>s.finger==="tweaky")){
     out.push({level:"warn",text:"Tweaky twice in a row — ease intensity on the next finger session."});
   }
+
+  // acute:chronic workload ratio — overall session-count spike detection, not just finger sessions.
+  // ACWR = last 7 days' session count / (last 28 days' average weekly count). >1.5 is the commonly
+  // cited danger zone (Gabbett 2016) where sudden load jumps correlate with higher injury risk.
+  const nowEpoch=dayDiff(todayStr(),"1970-01-01");
+  const acuteCount=sessions.filter(s=>dayDiff(s.date,"1970-01-01")>nowEpoch-7).length;
+  const chronicCount=sessions.filter(s=>dayDiff(s.date,"1970-01-01")>nowEpoch-28).length;
+  const chronicWeekly=chronicCount/4;
+  if(chronicWeekly>=1){
+    const acwr=acuteCount/chronicWeekly;
+    if(acwr>1.5){
+      out.push({level:"warn",text:`Training load spiked to ~${acwr.toFixed(1)}× your recent average this week (${acuteCount} sessions vs a ~${chronicWeekly.toFixed(1)}/wk 4-week average) — sudden volume jumps are linked to higher injury risk. Consider easing up or taking an extra rest day.`});
+    }
+  }
+
   const cur=currentProgress();
   if(cur.isDeload){
     out.push({level:"info",text:"Deload week — halve hangboard/lift volume, keep climbing light."});

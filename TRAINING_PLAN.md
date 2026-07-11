@@ -109,6 +109,7 @@ Other things worth logging per session so the app can flag stalls/overtraining:
 - Flag if finger-intensity sessions (hangboard, or a climb session logged at RPE 9+) exceed 3 in the last 7 calendar days.
 - Flag a deload session-week automatically every 4th session-week of Strength Base or Power & Power-Endurance.
 - Surface a warning if pain/soreness is logged twice in a row (2 most recent sessions with a finger-status flag).
+- Flag a training-load spike using an acute:chronic workload ratio: last 7 days' total session count vs. the last 28 days' average weekly count. A ratio above 1.5 is the commonly cited danger zone (Gabbett, 2016, "The training—injury prevention paradox") where a sudden jump in volume — not the absolute volume itself — correlates with higher injury risk. This checks total session load, not just finger-intensity sessions, since sport-wide literature ties spikes in overall load (not just one modality) to injury risk.
 
 ## Sources referenced
 
@@ -123,6 +124,7 @@ Other things worth logging per session so the app can flag stalls/overtraining:
 - Mike & Mark Anderson — *The Rock Climber's Training Manual*, foundational-strength-first periodization model.
 - Lattice Training — published grip-strength normative data and public periodization commentary.
 - Tyler Nelson / Camp4 Human Performance — tendon adaptation and finger-training-frequency commentary.
+- Gabbett, T.J. (2016). *The training—injury prevention paradox: should athletes be training smarter and harder?* British Journal of Sports Medicine. Source for the acute:chronic workload ratio (ACWR) concept behind the training-load spike guardrail.
 
 **Caveat:** several of the above (Philippe et al., Schweizer & Hudek) are cited from memory of the general findings/thrust of published climbing-science literature — verify exact figures/years before quoting them anywhere user-facing. The protocols (López repeaters, Bechtel standards, Hörst/Anderson periodization) are well-established and widely reproduced in the climbing training community, but treat this doc as a first draft to sanity-check, not a peer-reviewed citation list.
 
