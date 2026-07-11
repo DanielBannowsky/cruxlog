@@ -120,9 +120,11 @@
   .hhead .type{color:var(--ink); font-weight:700; font-size:14px; text-transform:capitalize;}
   .hhead .fdot{width:9px; height:9px; border-radius:5px;}
   .hhead .date{margin-left:auto; color:var(--faint); font-size:12px; font-family:ui-monospace,monospace;}
-  .hhead .del{background:none; border:none; color:var(--faint); padding:4px; display:flex;
-    align-items:center; flex-shrink:0;}
-  .hhead .del svg{width:16px; height:16px; flex-shrink:0;}
+  .hhead .del{background:var(--panel2); border:1px solid var(--line); color:var(--sub);
+    padding:6px 10px; border-radius:8px; display:flex; align-items:center; gap:5px;
+    flex-shrink:0; font-size:12px; font-weight:700; min-height:30px;}
+  .hhead .del svg{width:14px; height:14px; flex-shrink:0;}
+  .hhead .del.confirm{background:rgba(217,80,63,.15); border-color:var(--pain); color:var(--pain);}
   .hdetail{font-family:ui-monospace,monospace; font-size:14px; color:var(--ink); letter-spacing:-.2px;}
   .hnotes{color:var(--sub); font-size:13px; margin-top:6px;}
   .hicon{color:var(--accent); display:flex;}
@@ -179,15 +181,18 @@
 const KEY = "climb-tracker-v1";
 const GRADE_COLORS = ["#5E8A96","#5E9689","#5F9C7E","#79A066","#A3A055","#C0983F",
   "#CE8B44","#D57947","#D0603F","#C24F45","#B04343"];
-const LIFTS = {
-  chin:{name:"Chin-up",short:"Chin",day:"A",bw:true},
-  ohp:{name:"Overhead press",short:"OHP",day:"A"},
-  squat:{name:"Squat",short:"Squat",day:"A"},
-  row:{name:"Barbell row",short:"Row",day:"B"},
-  bench:{name:"Bench press",short:"Bench",day:"B"},
-  dl:{name:"Deadlift",short:"Dead",day:"B"},
-};
-const DAY_LIFTS = {A:["chin","ohp","squat"], B:["row","bench","dl"]};
+/* One lift day/week, every phase — see TRAINING_PLAN.md "Lift Day Protocol". */
+const LIFT_DAY = [
+  {key:"pullup",    name:"Weighted pull-up",         short:"Pull-up",    sets:4, repTarget:"3-5",  bw:true},
+  {key:"ohp",       name:"Overhead press",           short:"OHP",        sets:3, repTarget:"5"},
+  {key:"pullapart", name:"Band pull-apart / face pull", short:"Pull-apart", sets:3, repTarget:"15"},
+  {key:"wristext",  name:"Wrist extensor curl",      short:"Wrist ext",  sets:3, repTarget:"12"},
+  {key:"hlr",       name:"Hanging leg raise",        short:"Leg raise",  sets:3, repTarget:"8-10"},
+];
+function blankLiftEntries(){
+  const o={}; LIFT_DAY.forEach(L=>{ o[L.key]=Array.from({length:L.sets},()=>({weight:"",reps:"",amrap:false})); });
+  return o;
+}
 const FINGER = {
   good:{label:"Good",dot:"var(--good)"},
   tweaky:{label:"Tweaky",dot:"var(--tweaky)"},
@@ -221,35 +226,66 @@ const PHASES = [
 ];
 const TOTAL_WEEKS = PHASES.reduce((a,p)=>a+p.weeks,0);
 
-// ordered session slots per phase (rest days are implicit — nothing to log, nothing to skip)
+// ordered session slots per phase — exactly one lift slot/week in every phase (see TRAINING_PLAN.md).
+// "full" is the longer coaching note shown when you tap the Up Next card for detail.
+const LIFT_FULL = {
+  recon:    "One session, all 5 lifts: weighted pull-up 4×3-5 (bodyweight or very light added weight), overhead press 3×5, band pull-apart 3×15, wrist extensor curl 3×12, hanging leg raise 3×8-10. Keep everything light-moderate — you're re-grooving patterns, not chasing numbers yet.",
+  strength: "Same 5 lifts, same set/rep targets — but this is where you progressively add weight to the pull-up and OHP, session over session, as long as reps stay clean. Antagonist and wrist work stay at a steady, non-maxing effort; they're prehab, not the point of the session.",
+  power:    "Maintain your current pull-up and OHP loads — don't chase new numbers this phase, your climbing sessions are the priority now. Keep antagonist/wrist work in every week without fail; it's what's protecting your elbows through the higher pulling intensity elsewhere.",
+  perform:  "Light maintenance only. Enough load to keep the signal alive, nothing that leaves you sore for a project day. Antagonist and wrist work still count — skipping them is how overuse injuries creep in during a send phase.",
+};
 const WEEKLY_TEMPLATES = {
   recon:[
-    {type:"climb",label:"Climb — volume",  detail:"V0–V3, high volume, footwork focus"},
-    {type:"hang", label:"Hangboard — repeaters", detail:"20mm edge, bodyweight, 7s/3s×6",protocol:"repeater"},
-    {type:"lift", label:"Lift — light + antagonist", detail:"Bodyweight/light pull-ups, prehab"},
-    {type:"climb",label:"Climb — ARC / easy", detail:"20–30 min continuous easy movement"},
-    {type:"climb",label:"Climb — volume",  detail:"Easy volume"},
+    {type:"climb",label:"Climb — volume",  detail:"V0–V3, high volume, footwork focus",
+      full:"Stay in the V0–V3 range even though it feels easy — the goal is movement volume and footwork precision, not difficulty. Slow, quiet feet, full extension between moves. This rebuilds general work capacity before you load fingers hard again."},
+    {type:"hang", label:"Hangboard — repeaters", detail:"20mm edge, bodyweight, 7s/3s×6",protocol:"repeater",
+      full:"Bodyweight only, ~20mm edge. 7s hang / 3s rest × 6 reps, 3 min rest between sets, 2 sets per grip type (open + half-crimp). This is tendon reconditioning — moderate load, not max effort."},
+    {type:"climb",label:"Climb — volume",  detail:"V0–V3, high volume, footwork focus",
+      full:"Same as your other volume day — mileage and footwork, not difficulty. If it feels too easy, that's the point right now."},
+    {type:"hang", label:"Hangboard — repeaters", detail:"20mm edge, bodyweight, 7s/3s×6",protocol:"repeater",
+      full:"Second repeater session of the week. Same protocol as before — this frequency is what rebuilds tendon tolerance without risking a flare-up."},
+    {type:"lift", label:"Lift — light",  detail:"Full 5-lift session, light load",
+      full:LIFT_FULL.recon},
+    {type:"climb",label:"Climb — ARC / easy", detail:"20–30 min continuous easy movement",
+      full:"20–30 minutes of continuous, easy movement — traversing or repeating easy problems back to back with minimal rest. You should never get pumped. This builds aerobic capacity in the forearms, which speeds recovery between hard sessions later."},
   ],
   strength:[
-    {type:"climb",label:"Climb — volume",  detail:"V0–V4 + footwork drills"},
-    {type:"hang", label:"Hangboard — max hangs", detail:"20mm, near-max load, 10s/3min×5–6",protocol:"max"},
-    {type:"climb",label:"Climb — limit",   detail:"V4–V5, low volume, full rest between goes"},
-    {type:"hang", label:"Hangboard — repeaters", detail:"Repeaters + core",protocol:"repeater"},
-    {type:"climb",label:"Climb — volume / ARC"},
+    {type:"climb",label:"Climb — volume",  detail:"V0–V4 + footwork drills",
+      full:"V0–V4, moderate volume, with 2-3 problems where you deliberately drill footwork (quiet feet, no smearing scrambles). Warm up thoroughly before any harder attempts today."},
+    {type:"hang", label:"Hangboard — max hangs", detail:"20mm, near-max load, 10s/3min×5–6",protocol:"max",
+      full:"20mm edge, near-max effort. 10s hang / 3min rest × 5-6 sets. Add or remove weight so the last 2-3 seconds of the hang are genuinely hard — this is neural/max-strength work, not conditioning. Full 3-minute rests, no shortcuts."},
+    {type:"climb",label:"Climb — limit",   detail:"V4–V5, low volume, full rest between goes",
+      full:"V4–V5, low volume. Full rest (3-5 min) between attempts. Ugly movement is fine — you're exposing yourself to harder holds and steeper angles, not sending clean."},
+    {type:"hang", label:"Hangboard — repeaters", detail:"Repeaters + core",protocol:"repeater",
+      full:"Repeaters + core work. Keep this at a moderate edge/load — this session maintains tendon durability while your max-hang day does the heavy lifting."},
+    {type:"lift", label:"Lift — build",  detail:"Full 5-lift session, add weight",
+      full:LIFT_FULL.strength},
+    {type:"climb",label:"Climb — volume / ARC",
+      full:"Volume or ARC — whichever your body wants. Use this as an active recovery / mileage day."},
   ],
   power:[
-    {type:"climb",label:"Climb — limit",   detail:"V5–V6, low volume, full rest"},
-    {type:"hang", label:"Hangboard — maintenance", detail:"1×/week, maintain max-hang strength",protocol:"max"},
-    {type:"climb",label:"Climb — power-endurance", detail:"4x4s / linked circuits, V3–V4"},
-    {type:"lift", label:"Lift — maintenance + antagonist"},
-    {type:"climb",label:"Climb — volume / campus"},
+    {type:"climb",label:"Climb — limit",   detail:"V5–V6, low volume, full rest",
+      full:"V5–V6, low volume, full rest between attempts. This is where the strength you built converts into harder single moves."},
+    {type:"hang", label:"Hangboard — maintenance", detail:"1×/week, maintain max-hang strength",protocol:"max",
+      full:"1x/week is enough here — you're not trying to add new max-hang strength, just hold onto what you built. Same near-max load, 3-4 sets is fine."},
+    {type:"climb",label:"Climb — power-endurance", detail:"4x4s / linked circuits, V3–V4",
+      full:"4x4s or linked boulder circuits at V3–V4, minimal rest between attempts/problems. This trains your ability to link hard moves without falling apart — think 'V6 crux, 4 times in a row.'"},
+    {type:"lift", label:"Lift — maintain",  detail:"Full 5-lift session, hold current weight",
+      full:LIFT_FULL.power},
+    {type:"climb",label:"Climb — volume / campus",
+      full:"Volume day, or light campus board work (basic ladders, matching moves only) if shoulders/elbows feel good."},
   ],
   perform:[
-    {type:"climb",label:"Climb — project",  detail:"V6–V8 attempts"},
-    {type:"hang", label:"Hangboard — maintenance", detail:"short max-hang session",protocol:"max"},
-    {type:"climb",label:"Climb — project",  detail:"V6–V8 attempts"},
-    {type:"lift", label:"Lift — maintenance"},
-    {type:"climb",label:"Climb — volume / technique"},
+    {type:"climb",label:"Climb — project",  detail:"V6–V8 attempts",
+      full:"V6–V8 attempts. Full rest between burns. This is what everything else has been building toward — treat sends as data, not judgment."},
+    {type:"hang", label:"Hangboard — maintenance", detail:"short max-hang session",protocol:"max",
+      full:"Short max-hang session, just enough to keep the signal alive. Don't grind — this phase is about projecting, not building new strength."},
+    {type:"climb",label:"Climb — project",  detail:"V6–V8 attempts",
+      full:"Second project session of the week — same approach, full rest between burns."},
+    {type:"lift", label:"Lift — maintain",  detail:"Full 5-lift session, reduced volume",
+      full:LIFT_FULL.perform},
+    {type:"climb",label:"Climb — volume / technique",
+      full:"Volume or technique-focused day — film yourself, look at footwork and hip positioning on your project's crux."},
   ],
 };
 function slotsOf(phaseKey){ return WEEKLY_TEMPLATES[phaseKey]||WEEKLY_TEMPLATES.strength; }
@@ -327,6 +363,7 @@ const I = {
   down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>',
   up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>',
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="m9 18 6-6-6-6"/></svg>',
 };
 
 /* ============================ helpers ============================ */
@@ -349,23 +386,26 @@ function detailOf(s){
   }
   if(s.type==="lift"){
     const l=s.lift||{};
-    const parts=DAY_LIFTS[l.day||"A"].map(k=>{
-      const e=(l.entries||{})[k]; if(!e||e.weight===""||e.weight==null)return null;
-      const w=LIFTS[k].bw?(Number(e.weight)?`+${e.weight}`:"BW"):e.weight;
-      return `${LIFTS[k].short} ${w}×${e.reps||"?"}${e.amrap?"+":""}`;
+    const parts=LIFT_DAY.map(L=>{
+      const rows=(l.entries||{})[L.key]; if(!rows||!rows.length) return null;
+      const setsStr=rows.map(r=>{
+        const w=L.bw?(Number(r.weight)?`+${r.weight}`:"BW"):r.weight;
+        return `${w}×${r.reps||"?"}${r.amrap?"+":""}`;
+      }).join(",");
+      return `${L.short} ${setsStr}`;
     }).filter(Boolean);
-    return `Lift ${l.day} · ${parts.join("  ")||"—"}`;
+    return `Lift · ${parts.join("  ")||"—"}`;
   }
   return"—";
 }
 
 /* ============================ state ============================ */
 let store, saveError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false };
 
 function blankForm(){
   return { type:"climb", date:todayStr(), grades:[], protocol:"repeater", edge:20,
-    addedLb:0, sets:5, day:"A", entries:{}, finger:null, effort:null, notes:"" };
+    addedLb:0, sets:5, entries:blankLiftEntries(), finger:null, effort:null, notes:"" };
 }
 function load(){
   try{ const raw=localStorage.getItem(KEY); store={...DEFAULTS,...(raw?JSON.parse(raw):{})}; }
@@ -417,17 +457,20 @@ function renderPlan(){
     return `<div style="background:${bg};color:${fg};border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:8px;line-height:1.4;">${esc(w.text)}</div>`;
   }).join("")}</div>` : "";
 
+  const detailOpen = ui.planDetailOpen;
   const upNextCard = complete ? `<div class="field"><div class="flabel">Up next</div>
       <div class="stack"><div class="hint">26-week cycle complete. Reassess your limiter and consider starting a fresh strength block.</div></div></div>`
-    : `<div class="field"><div class="flabel">Up next</div>
+    : `<div class="field"><div class="flabel">Up next · tap for detail</div>
       <div class="stack">
-        <div style="display:flex;align-items:center;gap:12px">
+        <div id="upNextTap" style="display:flex;align-items:center;gap:12px;cursor:pointer">
           <span class="hicon">${typeIcon[next.type]}</span>
           <div style="flex:1">
             <div style="font-weight:800;font-size:15px">${esc(next.label)}</div>
             ${next.detail?`<div class="hint" style="margin-top:4px">${esc(next.detail)}</div>`:""}
           </div>
+          <span style="color:var(--faint);transform:rotate(${detailOpen?90:0}deg);transition:transform .15s">${I.chev}</span>
         </div>
+        ${detailOpen&&next.full?`<div class="hint" style="background:var(--panel2);border-radius:10px;padding:12px;line-height:1.5">${esc(next.full)}</div>`:""}
         <button class="btn2" id="logToday" style="margin:0">${I.plus}Log this session</button>
       </div>
     </div>`;
@@ -485,13 +528,7 @@ function renderLog(){
         ${stepper("Sets","sets",f.sets,"")}
       </div></div>`;
   } else {
-    body=`<div class="field"><div class="flabel">Lift day</div>
-      <div class="seg" style="margin-bottom:16px" data-seg="day">
-        <button data-val="A" class="${f.day==="A"?"on":""}">Day A</button>
-        <button data-val="B" class="${f.day==="B"?"on":""}">Day B</button></div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        ${DAY_LIFTS[f.day].map(k=>liftRow(k,f.entries[k]||{})).join("")}
-      </div></div>`;
+    body=LIFT_DAY.map(L=>liftBlock(L,f.entries[L.key]||[])).join("");
   }
 
   const finger = f.type!=="lift" ? `<div class="field"><div class="flabel">Finger status</div>
@@ -534,15 +571,23 @@ function stepper(lab,key,val,suf){
       <button class="stepbtn" data-step="${key}" data-dir="1">${I.plus}</button>
     </div></div>`;
 }
-function liftRow(k,e){
-  const L=LIFTS[k];
-  return `<div class="liftrow"><div class="name">${L.short}</div>
-    <input class="numin" style="width:70px" inputmode="decimal" data-lift="${k}" data-fld="weight"
-      value="${e.weight??""}" placeholder="${L.bw?"+lb":"lb"}">
+function liftBlock(L,rows){
+  return `<div class="field"><div class="flabel" style="display:flex;justify-content:space-between;align-items:center">
+      <span>${esc(L.name)}</span>
+      <span style="color:var(--faint);text-transform:none;font-weight:600;letter-spacing:0">${L.sets}×${L.repTarget}${L.bw?" (+lb)":""}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${rows.map((r,i)=>liftSetRow(L,i,r)).join("")}
+    </div></div>`;
+}
+function liftSetRow(L,i,r){
+  return `<div class="liftrow"><div class="name">Set ${i+1}</div>
+    <input class="numin" style="width:64px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="weight"
+      value="${r.weight??""}" placeholder="${L.bw?"+lb":"lb"}">
     <span class="x">×</span>
-    <input class="numin" style="width:64px" inputmode="decimal" data-lift="${k}" data-fld="reps"
-      value="${e.reps??""}" placeholder="reps">
-    <button class="amrap ${e.amrap?"on":""}" data-amrap="${k}" title="AMRAP last set">+</button></div>`;
+    <input class="numin" style="width:56px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps"
+      value="${r.reps??""}" placeholder="reps">
+    <button class="amrap ${r.amrap?"on":""}" data-amrap-lift="${L.key}" data-amrap-idx="${i}" title="AMRAP">+</button></div>`;
 }
 
 function renderHistory(){
@@ -561,8 +606,8 @@ function renderHistory(){
         ${f?`<span class="fdot" style="background:${f.dot}" title="${f.label}"></span>`:""}
         <span class="date">${prettyDate(s.date)}</span>
         ${ui.confirmDel===s.id
-          ? `<button class="del" data-del="${s.id}" style="color:var(--pain);font-size:11px;font-weight:800;display:flex;align-items:center;gap:4px">${I.trash}Confirm?</button>`
-          : `<button class="del" data-del="${s.id}">${I.trash}</button>`}
+          ? `<button class="del confirm" data-del="${s.id}">${I.trash}Confirm?</button>`
+          : `<button class="del" data-del="${s.id}">${I.trash}Delete</button>`}
       </div>
       <div class="hdetail">${esc(detailOf(s))}</div>
       ${s.notes?`<div class="hnotes">${esc(s.notes)}</div>`:""}
@@ -644,7 +689,7 @@ function valid(){
   const f=ui.form;
   if(f.type==="climb") return f.grades.length>0 && !!f.finger;
   if(f.type==="hang") return !!f.finger;
-  if(f.type==="lift") return DAY_LIFTS[f.day].some(k=>(f.entries[k]?.weight??"")!=="");
+  if(f.type==="lift") return LIFT_DAY.some(L=>(f.entries[L.key]||[]).some(r=>(r.weight??"")!==""));
   return false;
 }
 function bumpGrade(g,d){
@@ -663,13 +708,15 @@ function commitSave(){
   if(f.type==="hang") s.hang={protocol:f.protocol,edge:f.edge,addedLb:f.addedLb,sets:f.sets};
   if(f.type==="lift"){
     const entries={};
-    DAY_LIFTS[f.day].forEach(k=>{ const e=f.entries[k];
-      if(e&&(e.weight??"")!=="") entries[k]={weight:e.weight,reps:e.reps??"",amrap:!!e.amrap}; });
-    s.lift={day:f.day,entries};
+    LIFT_DAY.forEach(L=>{
+      const rows=(f.entries[L.key]||[]).filter(r=>(r.weight??"")!=="");
+      if(rows.length) entries[L.key]=rows.map(r=>({weight:r.weight,reps:r.reps??"",amrap:!!r.amrap}));
+    });
+    s.lift={entries};
   }
   store.sessions.push(s); advanceProgress(); save();
-  const keepType=f.type, keepDate=f.date, keepDay=f.day;
-  ui.form=blankForm(); ui.form.type=keepType; ui.form.date=keepDate; ui.form.day=keepDay;
+  const keepType=f.type, keepDate=f.date;
+  ui.form=blankForm(); ui.form.type=keepType; ui.form.date=keepDate;
   ui.flash=true; render();
   setTimeout(()=>{ ui.flash=false; render(); },1400);
 }
@@ -708,15 +755,17 @@ function wire(){
   // lift inputs (no re-render — preserve focus)
   $main.querySelectorAll("[data-lift]").forEach(inp=>{
     inp.oninput=e=>{
-      const k=inp.dataset.lift, fld=inp.dataset.fld;
+      const k=inp.dataset.lift, idx=+inp.dataset.idx, fld=inp.dataset.fld;
       const v=e.target.value.replace(/[^0-9.]/g,""); e.target.value=v;
-      ui.form.entries[k]={...(ui.form.entries[k]||{}),[fld]:v};
+      const arr=[...(ui.form.entries[k]||[])]; arr[idx]={...arr[idx],[fld]:v};
+      ui.form.entries[k]=arr;
       updateSaveBtn();
     };
   });
-  $main.querySelectorAll("[data-amrap]").forEach(b=>b.onclick=()=>{
-    const k=b.dataset.amrap; ui.form.entries[k]={...(ui.form.entries[k]||{}),amrap:!ui.form.entries[k]?.amrap};
-    render();
+  $main.querySelectorAll("[data-amrap-lift]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.amrapLift, idx=+b.dataset.amrapIdx;
+    const arr=[...(ui.form.entries[k]||[])]; arr[idx]={...arr[idx],amrap:!arr[idx]?.amrap};
+    ui.form.entries[k]=arr; render();
   });
   // finger / effort
   $main.querySelectorAll("[data-finger]").forEach(b=>b.onclick=()=>{ ui.form.finger=b.dataset.finger; render(); });
@@ -744,6 +793,7 @@ function wire(){
     if(next.protocol) ui.form.protocol=next.protocol;
     ui.tab="log"; render();
   };
+  const ut=$main.querySelector("#upNextTap"); if(ut) ut.onclick=()=>{ ui.planDetailOpen=!ui.planDetailOpen; render(); };
   // progress buttons
   const ex=$main.querySelector("#export"); if(ex) ex.onclick=doExport;
   const bk=$main.querySelector("#backup"); if(bk) bk.onclick=doBackup;
