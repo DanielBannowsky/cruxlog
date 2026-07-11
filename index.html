@@ -199,8 +199,116 @@ const DEFAULTS = {
   sessions:[],
   liftTargets:{chin:0,ohp:null,squat:null,row:null,bench:null,dl:null},
   lastLiftDay:null, dailyChecks:{},
-  settings:{startDate:"2026-07-06", totalWeeks:20, targetGrade:8},
+  settings:{targetGrade:8, bodyweight:null},
+  benchmarks:[], // {id,date,metric:'hang'|'pull',value}
+  progress:{phaseIdx:0, weekInPhase:1, slot:0}, // advances only when a session is logged — never tied to the calendar
 };
+
+/* ---- program: phases + weekly templates, from TRAINING_PLAN.md ----
+   Progress through this is driven entirely by logged sessions, not dates.
+   Miss a day, take a week off, whatever — the plan just waits at the same slot. */
+const PHASES = [
+  {key:"recon",    name:"Reconditioning",          weeks:4,
+    note:"Rebuild tendon tolerance & volume. No limit bouldering, no max hangs."},
+  {key:"strength", name:"Strength Base",            weeks:8,
+    note:"Max hangs + weighted pull-ups build the strength ceiling."},
+  {key:"power",    name:"Power & Power-Endurance",  weeks:8,
+    note:"Convert strength into hard moves and links."},
+  {key:"perform",  name:"Performance / Send",       weeks:6,
+    note:"Project V6–V8. Taper training volume, chase sends."},
+];
+const TOTAL_WEEKS = PHASES.reduce((a,p)=>a+p.weeks,0);
+
+// ordered session slots per phase (rest days are implicit — nothing to log, nothing to skip)
+const WEEKLY_TEMPLATES = {
+  recon:[
+    {type:"climb",label:"Climb — volume",  detail:"V0–V3, high volume, footwork focus"},
+    {type:"hang", label:"Hangboard — repeaters", detail:"20mm edge, bodyweight, 7s/3s×6",protocol:"repeater"},
+    {type:"lift", label:"Lift — light + antagonist", detail:"Bodyweight/light pull-ups, prehab"},
+    {type:"climb",label:"Climb — ARC / easy", detail:"20–30 min continuous easy movement"},
+    {type:"climb",label:"Climb — volume",  detail:"Easy volume"},
+  ],
+  strength:[
+    {type:"climb",label:"Climb — volume",  detail:"V0–V4 + footwork drills"},
+    {type:"hang", label:"Hangboard — max hangs", detail:"20mm, near-max load, 10s/3min×5–6",protocol:"max"},
+    {type:"climb",label:"Climb — limit",   detail:"V4–V5, low volume, full rest between goes"},
+    {type:"hang", label:"Hangboard — repeaters", detail:"Repeaters + core",protocol:"repeater"},
+    {type:"climb",label:"Climb — volume / ARC"},
+  ],
+  power:[
+    {type:"climb",label:"Climb — limit",   detail:"V5–V6, low volume, full rest"},
+    {type:"hang", label:"Hangboard — maintenance", detail:"1×/week, maintain max-hang strength",protocol:"max"},
+    {type:"climb",label:"Climb — power-endurance", detail:"4x4s / linked circuits, V3–V4"},
+    {type:"lift", label:"Lift — maintenance + antagonist"},
+    {type:"climb",label:"Climb — volume / campus"},
+  ],
+  perform:[
+    {type:"climb",label:"Climb — project",  detail:"V6–V8 attempts"},
+    {type:"hang", label:"Hangboard — maintenance", detail:"short max-hang session",protocol:"max"},
+    {type:"climb",label:"Climb — project",  detail:"V6–V8 attempts"},
+    {type:"lift", label:"Lift — maintenance"},
+    {type:"climb",label:"Climb — volume / technique"},
+  ],
+};
+function slotsOf(phaseKey){ return WEEKLY_TEMPLATES[phaseKey]||WEEKLY_TEMPLATES.strength; }
+
+function currentProgress(){
+  const p = store.progress || DEFAULTS.progress;
+  const phaseIdx = Math.min(p.phaseIdx, PHASES.length-1);
+  const phase = PHASES[phaseIdx];
+  const slots = slotsOf(phase.key);
+  const weekInPhase = Math.min(Math.max(p.weekInPhase,1), phase.weeks);
+  const slot = Math.min(Math.max(p.slot,0), slots.length-1);
+  const donePhaseWeeks = PHASES.slice(0,phaseIdx).reduce((a,ph)=>a+ph.weeks,0);
+  const absWeek = donePhaseWeeks + weekInPhase;
+  return {phaseIdx,phase,slots,weekInPhase,slot,absWeek,next:slots[slot],
+    isDeload:(phase.key==="strength"||phase.key==="power") && weekInPhase%4===0};
+}
+function advanceProgress(){
+  const cur=currentProgress();
+  let {phaseIdx,weekInPhase,slot}=cur;
+  const slots=cur.slots;
+  slot++;
+  if(slot>=slots.length){
+    slot=0; weekInPhase++;
+    if(weekInPhase>cur.phase.weeks){
+      weekInPhase=1;
+      if(phaseIdx<PHASES.length-1) phaseIdx++;
+      else { store.progress={phaseIdx,weekInPhase:cur.phase.weeks,slot:slots.length-1,completedCycle:true}; return; }
+    }
+  }
+  store.progress={phaseIdx,weekInPhase,slot};
+}
+
+const FINGER_INTENSITY_TYPES = s => s.type==="hang" || (s.type==="climb" && (s.rpe>=9));
+function computeGuardrails(store){
+  const out=[];
+  const sessions=[...store.sessions].sort((a,b)=>a.date<b.date?1:-1);
+  const fingerSessions=sessions.filter(FINGER_INTENSITY_TYPES);
+
+  if(fingerSessions.length>=2){
+    const d0=dayDiff(fingerSessions[0].date, fingerSessions[1].date);
+    if(Math.abs(d0)<=1){
+      out.push({level:"bad",text:"Finger-intensity sessions on back-to-back days — rest 48h+ between max hangs / limit bouldering."});
+    }
+  }
+  const rollingCutoff=dayDiff(todayStr(),"1970-01-01")-7;
+  const last7dFinger=fingerSessions.filter(s=>dayDiff(s.date,"1970-01-01")>rollingCutoff);
+  if(last7dFinger.length>3){
+    out.push({level:"warn",text:`${last7dFinger.length} finger-intensity sessions in the last 7 days — plan caps this at 3/week.`});
+  }
+  const painTrail=sessions.filter(s=>s.finger).slice(0,2);
+  if(painTrail.length===2 && painTrail.every(s=>s.finger==="pain")){
+    out.push({level:"bad",text:"Pain flagged in back-to-back sessions — back off finger loading and consider a deload."});
+  } else if(painTrail.length===2 && painTrail.every(s=>s.finger==="tweaky")){
+    out.push({level:"warn",text:"Tweaky twice in a row — ease intensity on the next finger session."});
+  }
+  const cur=currentProgress();
+  if(cur.isDeload){
+    out.push({level:"info",text:"Deload week — halve hangboard/lift volume, keep climbing light."});
+  }
+  return out;
+}
 
 /* icons (inline svg) */
 const I = {
@@ -216,19 +324,13 @@ const I = {
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
   down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>',
   up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>',
 };
 
 /* ============================ helpers ============================ */
 const pad = n => String(n).padStart(2,"0");
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const dayDiff = (a,b) => Math.floor((new Date(a+"T12:00:00")-new Date(b+"T12:00:00"))/86400000);
-const weekOf = (d,s) => Math.floor(dayDiff(d,s.startDate)/7)+1;
-function phaseOf(wk,T){
-  if(wk<1)return"Pre-plan"; if(wk>T)return"Post-plan"; if(wk<=3)return"Adaptation";
-  if(wk<=Math.round(T*0.45))return"Base · repeaters";
-  if(wk<=Math.round(T*0.75))return"Strength · max hangs";
-  if(wk<=T-1)return"Power"; return"Peak";
-}
 const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function prettyDate(s){ return new Date(s+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}); }
@@ -257,7 +359,7 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false;
-const ui = { tab:"log", form:blankForm(), flash:false, copied:false, backed:false };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null };
 
 function blankForm(){
   return { type:"climb", date:todayStr(), grades:[], protocol:"repeater", edge:20,
@@ -279,7 +381,8 @@ document.getElementById("ladder").innerHTML =
   GRADE_COLORS.map(c=>`<span style="background:${c}"></span>`).join("");
 
 function render(){
-  if(ui.tab==="log") $main.innerHTML=renderLog();
+  if(ui.tab==="plan") $main.innerHTML=renderPlan();
+  else if(ui.tab==="log") $main.innerHTML=renderLog();
   else if(ui.tab==="history") $main.innerHTML=renderHistory();
   else $main.innerHTML=renderProgress();
   renderNav();
@@ -287,7 +390,7 @@ function render(){
 }
 
 function renderNav(){
-  const tabs=[["log","Log",I.plus],["history","History",I.hist],["progress","Progress",I.bars]];
+  const tabs=[["plan","Plan",I.cal],["log","Log",I.plus],["history","History",I.hist],["progress","Progress",I.bars]];
   $nav.innerHTML=tabs.map(([k,l,ic])=>
     `<button data-tab="${k}" class="${ui.tab===k?"on":""}">${ic}${l}</button>`).join("");
 }
@@ -297,10 +400,66 @@ function errBanner(){
     ⚠︎ Couldn't save to this device's storage. Your log may not persist here.</div>` : "";
 }
 
+function renderPlan(){
+  const cur=currentProgress();
+  const {phase,slots,slot,weekInPhase,absWeek,next,isDeload}=cur;
+  const warnings=computeGuardrails(store);
+  const pct=Math.min(100,Math.round((absWeek/TOTAL_WEEKS)*100));
+  const complete = (store.progress||{}).completedCycle;
+
+  const typeIcon={climb:I.climb,hang:I.hang,lift:I.lift};
+
+  const warnBlock = warnings.length ? `<div class="field">${warnings.map(w=>{
+    const bg = w.level==="bad" ? "#3A2622" : w.level==="warn" ? "#3A3122" : "var(--panel)";
+    const fg = w.level==="bad" ? "#F0C6BE" : w.level==="warn" ? "#F0DFA6" : "var(--sub)";
+    return `<div style="background:${bg};color:${fg};border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:8px;line-height:1.4;">${esc(w.text)}</div>`;
+  }).join("")}</div>` : "";
+
+  const upNextCard = complete ? `<div class="field"><div class="flabel">Up next</div>
+      <div class="stack"><div class="hint">26-week cycle complete. Reassess your limiter and consider starting a fresh strength block.</div></div></div>`
+    : `<div class="field"><div class="flabel">Up next</div>
+      <div class="stack">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="hicon">${typeIcon[next.type]}</span>
+          <div style="flex:1">
+            <div style="font-weight:800;font-size:15px">${esc(next.label)}</div>
+            ${next.detail?`<div class="hint" style="margin-top:4px">${esc(next.detail)}</div>`:""}
+          </div>
+        </div>
+        <button class="btn2" id="logToday" style="margin:0">${I.plus}Log this session</button>
+      </div>
+    </div>`;
+
+  return errBanner()+`
+    <div class="cur">
+      <div class="lab">Week ${weekInPhase} of ${phase.weeks} · ${phase.name} (plan wk ${absWeek}/${TOTAL_WEEKS})</div>
+      <div class="big"><span class="phase" style="font-size:20px">${phase.name}</span></div>
+      <div style="height:6px;background:var(--panel2);border-radius:4px;margin-top:12px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px"></div></div>
+      <div class="hint" style="margin-top:10px">${esc(phase.note)}</div>
+    </div>
+    ${isDeload?`<div class="field"><div style="background:#22303A;color:var(--accent);border-radius:12px;padding:12px 14px;font-size:13px;">Deload week — halve hangboard/lift volume, keep climbing light.</div></div>`:""}
+    ${warnBlock}
+    ${upNextCard}
+    <div class="field"><div class="flabel">${phase.name} — session order</div>
+      <div class="stack" style="gap:0;padding:6px 14px">
+        ${slots.map((s,i)=>{
+          const state = i<slot?"done":i===slot?"next":"upcoming";
+          const border=i<slots.length-1?"border-bottom:1px solid var(--line);":"";
+          const color = state==="next"?"var(--accent)":state==="done"?"var(--sub)":"var(--faint)";
+          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${border}">
+            <span style="width:22px;color:${color}">${state==="done"?I.check:""}</span>
+            <span style="flex:1;font-size:13px;color:${state==="upcoming"?"var(--faint)":"var(--ink)"}">${esc(s.label)}</span>
+            ${state==="next"?`<span class="hint" style="color:var(--accent)">next</span>`:""}
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="hint" style="margin-top:8px">This cycles once per week's worth of sessions — no calendar deadlines. Log whatever you did and the plan moves forward; miss a day, rest an extra one, whatever. Order is a guide, not a hard sequence.</div>
+    </div>`;
+}
+
 function renderLog(){
   const f=ui.form;
-  const wk=weekOf(f.date, store.settings);
-  const wkTag = (wk>=1&&wk<=store.settings.totalWeeks)?`WK ${wk}`:"off-plan";
   const gc=gradeCounts(f.grades);
 
   let body="";
@@ -360,7 +519,6 @@ function renderLog(){
     </div>
     <div class="daterow">
       <input type="date" id="date" value="${f.date}">
-      <span class="wk">${wkTag}</span>
     </div>
     <div class="rule"></div>
     ${body}${finger}${effort}${notes}${saveBtn}`;
@@ -400,7 +558,9 @@ function renderHistory(){
         <span class="type">${s.type}</span>
         ${f?`<span class="fdot" style="background:${f.dot}" title="${f.label}"></span>`:""}
         <span class="date">${prettyDate(s.date)}</span>
-        <button class="del" data-del="${s.id}">${I.trash}</button>
+        ${ui.confirmDel===s.id
+          ? `<button class="del" data-del="${s.id}" style="color:var(--pain);font-size:11px;font-weight:800;display:flex;align-items:center;gap:4px">${I.trash}Confirm?</button>`
+          : `<button class="del" data-del="${s.id}">${I.trash}</button>`}
       </div>
       <div class="hdetail">${esc(detailOf(s))}</div>
       ${s.notes?`<div class="hnotes">${esc(s.notes)}</div>`:""}
@@ -410,30 +570,67 @@ function renderHistory(){
 
 function renderProgress(){
   const s=store.sessions;
-  const thisWk=weekOf(todayStr(), store.settings);
-  const inWk=s.filter(x=>weekOf(x.date,store.settings)===thisWk).length;
+  const cutoff=dayDiff(todayStr(),"1970-01-01")-7;
+  const last7d=s.filter(x=>dayDiff(x.date,"1970-01-01")>cutoff).length;
   let hardest=-1; s.forEach(x=>(x.grades||[]).forEach(g=>{ if(g>hardest)hardest=g; }));
   const climbs=s.filter(x=>x.type==="climb").length;
-  const phase=phaseOf(thisWk, store.settings.totalWeeks);
-  const wknum=(thisWk>=1&&thisWk<=store.settings.totalWeeks)?`Wk ${thisWk}`:"Off-plan";
+  const cur=currentProgress();
+  const wknum=`Plan wk ${cur.absWeek}/${TOTAL_WEEKS}`;
   const hv = hardest>=0?`V${hardest}`:"—";
   const hc = hardest>=0?GRADE_COLORS[hardest]:"var(--ink)";
 
   return errBanner()+`
     <div class="cur"><div class="lab">Current</div>
-      <div class="big"><span class="wknum">${wknum}</span><span class="phase">${phase}</span></div></div>
+      <div class="big"><span class="wknum">${wknum}</span><span class="phase">${cur.phase.name}</span></div></div>
     <div class="statgrid">
       ${stat("Sessions",s.length)}
-      ${stat("This week",inWk)}
+      ${stat("Last 7 days",last7d)}
       ${stat("Climbs logged",climbs)}
       ${stat("Hardest send",hv,hc)}
     </div>
+    ${renderBenchmarks()}
     <button class="btn2 ${ui.copied?"flash":""}" id="export">
       ${ui.copied?I.check+"Copied to clipboard":I.copy+"Export for Claude"}</button>
     <button class="btn2 ${ui.backed?"flash":""}" id="backup">
       ${ui.backed?I.check+"Backup downloaded":I.down+"Back up data (JSON)"}</button>
     <button class="btn2" id="restore">${I.up}Restore from backup</button>
+    ${ui.pendingImport?`<div style="background:#22303A;border-radius:12px;padding:14px;margin-bottom:10px;">
+      <div style="font-size:13px;color:var(--ink);margin-bottom:10px">Restore ${ui.pendingImport.count} sessions? This replaces what's currently on this device.</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn2" id="cancelImport" style="margin:0;flex:1">Cancel</button>
+        <button class="btn2" id="confirmImport" style="margin:0;flex:1;background:var(--good);color:#0E1418;border-color:var(--good)">Restore</button>
+      </div></div>`:""}
+    ${ui.importError?`<div style="background:#3A2622;color:#F0C6BE;border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:10px;">${esc(ui.importError)}</div>`:""}
     <div class="note">Export copies a compact CSV to paste into a chat for check-ins. Backup saves a full copy of your log to Files — keep one now and then, since app data lives only on this device.</div>`;
+}
+
+/* ---- benchmarks: grip strength / pull-up ratios vs plan targets ---- */
+const BENCH_TARGETS = {
+  hang:[["V3–V4","0–10%"],["V6","20–30%"],["V8","40–50%+"]],
+  pull:[["V3–V4","10–20%"],["V6","30–40%"],["V8","50%+"]],
+};
+function latestBenchmark(metric){
+  const list=(store.benchmarks||[]).filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?1:-1);
+  return list[0]||null;
+}
+function renderBenchmarks(){
+  const bw=store.settings.bodyweight;
+  const hang=latestBenchmark("hang"), pull=latestBenchmark("pull");
+  const ratio=(v)=> bw&&v!=null ? Math.round((v/bw)*100)+"%" : "—";
+  return `<div class="field"><div class="flabel">Benchmarks</div>
+    <div class="stack" style="margin-bottom:10px">
+      <div class="stepper"><span class="lab">Bodyweight (lb)</span>
+        <input class="numin" id="bw" style="width:70px" inputmode="decimal" value="${bw??""}" placeholder="lb"></div>
+      <div class="stepper"><span class="lab">Max hang add (20mm,10s)</span>
+        <div class="ctl"><input class="numin" id="benchHang" style="width:70px" inputmode="decimal"
+          placeholder="lb" value="${hang?hang.value:""}"><span class="val" style="min-width:40px">${ratio(hang?.value)}</span></div></div>
+      <div class="stepper"><span class="lab">Max weighted pull-up</span>
+        <div class="ctl"><input class="numin" id="benchPull" style="width:70px" inputmode="decimal"
+          placeholder="lb" value="${pull?pull.value:""}"><span class="val" style="min-width:40px">${ratio(pull?.value)}</span></div></div>
+      <button class="btn2" id="logBench" style="margin:4px 0 0">Log today's numbers</button>
+    </div>
+    <div class="hint">Target ranges (% bodyweight): hang V3-4 ${BENCH_TARGETS.hang[0][1]} · V6 ${BENCH_TARGETS.hang[1][1]} · V8 ${BENCH_TARGETS.hang[2][1]}. Pull-up V3-4 ${BENCH_TARGETS.pull[0][1]} · V6 ${BENCH_TARGETS.pull[1][1]} · V8 ${BENCH_TARGETS.pull[2][1]}. Approximate, from Lattice/Bechtel norms — not a hard gate.</div>
+  </div>`;
 }
 function stat(lab,v,color){
   return `<div class="stat"><div class="lab">${lab}</div>
@@ -468,7 +665,7 @@ function commitSave(){
       if(e&&(e.weight??"")!=="") entries[k]={weight:e.weight,reps:e.reps??"",amrap:!!e.amrap}; });
     s.lift={day:f.day,entries};
   }
-  store.sessions.push(s); save();
+  store.sessions.push(s); advanceProgress(); save();
   const keepType=f.type, keepDate=f.date, keepDay=f.day;
   ui.form=blankForm(); ui.form.type=keepType; ui.form.date=keepDate; ui.form.day=keepDay;
   ui.flash=true; render();
@@ -527,14 +724,45 @@ function wire(){
   const nt=$main.querySelector("#notes"); if(nt) nt.oninput=e=>{ ui.form.notes=e.target.value; };
   // save
   const sv=$main.querySelector("#save"); if(sv) sv.onclick=commitSave;
-  // history delete
+  // history delete — two-tap confirm (iOS standalone PWAs suppress window.confirm)
   $main.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
-    if(confirm("Delete this session?")){ store.sessions=store.sessions.filter(x=>x.id!==b.dataset.del); save(); render(); }
+    const id=b.dataset.del;
+    if(ui.confirmDel===id){
+      store.sessions=store.sessions.filter(x=>x.id!==id); ui.confirmDel=null; save(); render();
+    } else {
+      ui.confirmDel=id; render();
+      clearTimeout(ui._delTimer);
+      ui._delTimer=setTimeout(()=>{ if(ui.confirmDel===id){ ui.confirmDel=null; render(); } },4000);
+    }
   });
+  // plan tab
+  const lt=$main.querySelector("#logToday"); if(lt) lt.onclick=()=>{
+    const next=currentProgress().next;
+    ui.form=blankForm(); ui.form.type=next.type;
+    if(next.protocol) ui.form.protocol=next.protocol;
+    ui.tab="log"; render();
+  };
   // progress buttons
   const ex=$main.querySelector("#export"); if(ex) ex.onclick=doExport;
   const bk=$main.querySelector("#backup"); if(bk) bk.onclick=doBackup;
   const rs=$main.querySelector("#restore"); if(rs) rs.onclick=()=>document.getElementById("importer").click();
+  const ci=$main.querySelector("#confirmImport"); if(ci) ci.onclick=()=>{
+    store={...DEFAULTS,...ui.pendingImport.data}; ui.pendingImport=null; save(); render();
+  };
+  const xi=$main.querySelector("#cancelImport"); if(xi) xi.onclick=()=>{ ui.pendingImport=null; render(); };
+  // benchmarks
+  const bw=$main.querySelector("#bw"); if(bw) bw.onchange=e=>{
+    const v=e.target.value===""?null:Number(e.target.value);
+    store.settings.bodyweight=v; save(); render();
+  };
+  const lb=$main.querySelector("#logBench"); if(lb) lb.onclick=()=>{
+    const hv=$main.querySelector("#benchHang").value, pv=$main.querySelector("#benchPull").value;
+    store.benchmarks=store.benchmarks||[];
+    const d=todayStr();
+    if(hv!=="") store.benchmarks.push({id:uid(),date:d,metric:"hang",value:Number(hv)});
+    if(pv!=="") store.benchmarks.push({id:uid(),date:d,metric:"pull",value:Number(pv)});
+    save(); render();
+  };
 }
 
 function updateSaveBtn(){
@@ -545,14 +773,13 @@ function updateSaveBtn(){
 
 /* ---- export / backup / restore ---- */
 function doExport(){
-  const thisWk=weekOf(todayStr(),store.settings);
-  const phase=phaseOf(thisWk,store.settings.totalWeeks);
+  const cur=currentProgress();
   const rows=[["date","type","detail","finger","rpe","notes"]];
   [...store.sessions].sort((a,b)=>a.date<b.date?-1:1).forEach(s=>{
     rows.push([s.date,s.type,detailOf(s).replace(/\s+/g," "),s.finger||"",s.rpe??"",(s.notes||"").replace(/[\n,]/g," ")]);
   });
   const csv=rows.map(r=>r.map(c=>/[",]/.test(String(c))?`"${c}"`:c).join(",")).join("\n");
-  const text=`CruxLog export · start ${store.settings.startDate} · today ${todayStr()} (Wk ${thisWk}, ${phase})\n${csv}`;
+  const text=`CruxLog export · today ${todayStr()} (Plan wk ${cur.absWeek}/${TOTAL_WEEKS}, ${cur.phase.name})\n${csv}`;
   const done=()=>{ ui.copied=true; render(); setTimeout(()=>{ ui.copied=false; render(); },1800); };
   if(navigator.clipboard?.writeText){ navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text,done)); }
   else fallbackCopy(text,done);
@@ -576,9 +803,9 @@ document.getElementById("importer").onchange=e=>{
   r.onload=()=>{ try{
       const data=JSON.parse(r.result);
       if(!data||!Array.isArray(data.sessions)) throw 0;
-      if(!confirm(`Restore ${data.sessions.length} sessions? This replaces what's currently on this device.`)) return;
-      store={...DEFAULTS,...data}; save(); render();
-    }catch{ alert("That doesn't look like a CruxLog backup file."); } };
+      ui.pendingImport={count:data.sessions.length,data}; ui.importError=null; render();
+    }catch{ ui.importError="That doesn't look like a CruxLog backup file."; render();
+      setTimeout(()=>{ ui.importError=null; render(); },3000); } };
   r.readAsText(file); e.target.value="";
 };
 
