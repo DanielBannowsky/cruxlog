@@ -486,20 +486,20 @@ function renderPlan(){
     ${isDeload?`<div class="field"><div style="background:#22303A;color:var(--accent);border-radius:12px;padding:12px 14px;font-size:13px;">Deload week — halve hangboard/lift volume, keep climbing light.</div></div>`:""}
     ${warnBlock}
     ${upNextCard}
-    <div class="field"><div class="flabel">${phase.name} — session order</div>
+    <div class="field"><div class="flabel">${phase.name} — session order · tap to set as next</div>
       <div class="stack" style="gap:0;padding:6px 14px">
         ${slots.map((s,i)=>{
           const state = i<slot?"done":i===slot?"next":"upcoming";
           const border=i<slots.length-1?"border-bottom:1px solid var(--line);":"";
           const color = state==="next"?"var(--accent)":state==="done"?"var(--sub)":"var(--faint)";
-          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${border}">
+          return `<div data-setslot="${i}" style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;${border}">
             <span style="width:22px;color:${color}">${state==="done"?I.check:""}</span>
             <span style="flex:1;font-size:13px;color:${state==="upcoming"?"var(--faint)":"var(--ink)"}">${esc(s.label)}</span>
             ${state==="next"?`<span class="hint" style="color:var(--accent)">next</span>`:""}
           </div>`;
         }).join("")}
       </div>
-      <div class="hint" style="margin-top:8px">This cycles once per week's worth of sessions — no calendar deadlines. Log whatever you did and the plan moves forward; miss a day, rest an extra one, whatever. Order is a guide, not a hard sequence.</div>
+      <div class="hint" style="margin-top:8px">This cycles once per week's worth of sessions — no calendar deadlines. Log whatever you did and the plan moves forward; miss a day, rest an extra one, whatever. Tap any session above to skip to it or go back and redo one.</div>
     </div>`;
 }
 
@@ -794,6 +794,11 @@ function wire(){
     ui.tab="log"; render();
   };
   const ut=$main.querySelector("#upNextTap"); if(ut) ut.onclick=()=>{ ui.planDetailOpen=!ui.planDetailOpen; render(); };
+  $main.querySelectorAll("[data-setslot]").forEach(row=>row.onclick=()=>{
+    const i=+row.dataset.setslot, cur=currentProgress();
+    store.progress={phaseIdx:cur.phaseIdx, weekInPhase:cur.weekInPhase, slot:i};
+    ui.planDetailOpen=false; save(); render();
+  });
   // progress buttons
   const ex=$main.querySelector("#export"); if(ex) ex.onclick=doExport;
   const bk=$main.querySelector("#backup"); if(bk) bk.onclick=doBackup;
