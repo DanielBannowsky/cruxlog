@@ -77,7 +77,7 @@
   .stepper .ctl{display:flex; align-items:center; gap:10px;}
   .stepper .val{font-family:ui-monospace,monospace; font-size:18px; font-weight:700;
     min-width:58px; text-align:center; color:var(--ink);}
-  .stepbtn{width:38px; height:38px; border-radius:10px; border:1px solid var(--line);
+  .stepbtn{width:44px; height:44px; border-radius:10px; border:1px solid var(--line);
     background:var(--panel2); color:var(--ink); display:flex; align-items:center; justify-content:center;}
   .stepbtn svg{width:16px; height:16px;}
 
@@ -109,7 +109,9 @@
 
   .save{width:100%; border:none; border-radius:14px; padding:16px; font-size:16px;
     font-weight:800; letter-spacing:.3px; background:var(--panel2); color:var(--faint);
-    display:flex; align-items:center; justify-content:center; gap:8px; transition:background .2s;}
+    display:flex; align-items:center; justify-content:center; gap:8px; transition:background .2s;
+    position:sticky; bottom:calc(70px + env(safe-area-inset-bottom)); z-index:4;
+    box-shadow:0 4px 16px rgba(0,0,0,.4);}
   .save.ready{background:var(--accent); color:#0E1418;}
   .save.flash{background:var(--good); color:#0E1418;}
   .save svg{width:18px; height:18px;}
@@ -621,7 +623,12 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false, loadError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false, chartTap:null, editingId:null, planPosOpen:false };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null };
+function setProgressUndo(){
+  ui.progressUndo={progress:{...store.progress}};
+  clearTimeout(ui._undoTimer);
+  ui._undoTimer=setTimeout(()=>{ ui.progressUndo=null; render(); },8000);
+}
 
 function blankForm(){
   return { type:"climb", date:todayStr(), grades:[], protocol:"repeater", edge:20, grip:"half",
@@ -754,6 +761,7 @@ function renderPlan(){
       ${gate.applies?`<div class="hint" style="margin-top:8px">${esc(gate.text)}</div>`:""}
       ${held?`<div class="hint" style="margin-top:4px;color:var(--tweaky)">Held: Week ${weekInPhase}. Exit: benchmark met or Week ${cap}.</div>`:""}
       <div class="hint" style="margin-top:8px">${esc(lastText)}</div>
+      ${ui.progressUndo?`<div class="hint" style="margin-top:8px"><span id="undoProgress" style="text-decoration:underline;cursor:pointer;color:var(--accent)">Undo last change</span></div>`:""}
       ${ui.planPosOpen ? `<div class="stack" style="margin-top:10px">
           <div class="stepper"><span class="lab">Phase</span>
             <div class="ctl">
@@ -991,6 +999,8 @@ function renderProgress(){
       <div class="hint" style="margin-top:8px">Drives grade/load targets. Auto-updates on 3+ sends at higher grade.</div>
     </div>
     ${renderGradeChart()}
+    ${renderRecoveryTrends()}
+    ${renderStrengthTrends()}
     ${renderBenchmarks()}
     <button class="btn2 ${ui.copied?"flash":""}" id="export">
       ${ui.copied?I.check+"Copied to clipboard":I.copy+"Export for Claude"}</button>
@@ -1021,6 +1031,12 @@ function sparkline(values,opts={}){
     <path d="${d}" fill="none" stroke="${opts.color||"var(--accent)"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="${last[0]}" cy="${last[1]}" r="2.5" fill="${opts.color||"var(--accent)"}"/>
   </svg>`;
+}
+function dotStrip(values,colorMap){
+  if(!values.length) return "";
+  const r=4, gap=4, w=values.length*(r*2+gap)-gap, h=r*2;
+  const circles=values.map((v,i)=>`<circle cx="${r+i*(r*2+gap)}" cy="${r}" r="${r}" fill="${colorMap[v]||"var(--line)"}"/>`).join("");
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;display:block" preserveAspectRatio="xMinYMid meet">${circles}</svg>`;
 }
 function gradeHistory(){
   const climbs=[...store.sessions].filter(s=>s.type==="climb"&&(s.grades||[]).length)
@@ -1121,6 +1137,45 @@ function renderBenchmarkList(){
       }).join("")}
     </div>`;
 }
+function renderRecoveryTrends(){
+  const withFinger=[...store.sessions].filter(s=>s.finger).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
+  const withSleep=[...store.sessions].filter(s=>s.sleep).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
+  const withSoreness=[...store.sessions].filter(s=>s.soreness).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
+  if(!withFinger.length && !withSleep.length && !withSoreness.length) return "";
+  const fingerColors={good:"var(--good)",tweaky:"var(--tweaky)",pain:"var(--pain)"};
+  const sleepColors={poor:"var(--pain)",ok:"var(--tweaky)",good:"var(--good)"};
+  const sorenessColors={fresh:"var(--good)",tired:"var(--tweaky)",sore:"var(--pain)"};
+  const row=(label,items,map,key)=> items.length ? `<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">${label} · oldest→newest</div>${dotStrip(items.map(s=>s[key]),map)}</div>` : "";
+  return `<div class="field"><div class="flabel">Recovery signals</div>
+    ${row("Finger status",withFinger,fingerColors,"finger")}
+    ${row("Sleep",withSleep,sleepColors,"sleep")}
+    ${row("Soreness",withSoreness,sorenessColors,"soreness")}
+  </div>`;
+}
+function rpeTrend(){ return [...store.sessions].filter(s=>s.rpe!=null).sort((a,b)=>a.date<b.date?-1:1).map(s=>s.rpe); }
+function liftTrend(key){
+  return [...store.sessions].filter(s=>s.type==="lift"&&s.lift&&s.lift.entries&&s.lift.entries[key]&&s.lift.entries[key].length)
+    .sort((a,b)=>a.date<b.date?-1:1)
+    .map(s=>Math.max(...s.lift.entries[key].map(r=>Number(r.weight)||0)));
+}
+function hangTrend(protocol){
+  return [...store.sessions].filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol)
+    .sort((a,b)=>a.date<b.date?-1:1).map(s=>s.hang.addedLb??0);
+}
+function renderStrengthTrends(){
+  const parts=[];
+  const rpe=rpeTrend();
+  if(rpe.length>=2) parts.push(`<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">RPE trend</div>${sparkline(rpe,{color:"var(--accent)"})}</div>`);
+  LIFT_DAY.filter(L=>PROGRESSABLE_LIFTS.has(L.key)).forEach(L=>{
+    const t=liftTrend(L.key);
+    if(t.length>=2) parts.push(`<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">${esc(L.name)} top set</div>${sparkline(t)}</div>`);
+  });
+  const maxT=hangTrend("max"), repT=hangTrend("repeater");
+  if(maxT.length>=2) parts.push(`<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">Max hang load</div>${sparkline(maxT)}</div>`);
+  if(repT.length>=2) parts.push(`<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">Repeater load</div>${sparkline(repT)}</div>`);
+  if(!parts.length) return "";
+  return `<div class="field"><div class="flabel">Strength trends</div>${parts.join("")}</div>`;
+}
 function stat(lab,v,color){
   return `<div class="stat"><div class="lab">${lab}</div>
     <div class="v" style="${color?`color:${color}`:""}">${v}</div></div>`;
@@ -1206,6 +1261,7 @@ function wire(){
   $nav.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{
     const t=b.dataset.tab;
     if(t==="log" && ui.editingId){ ui.editingId=null; ui.form=freshForm(); }
+    if(t!=="plan") ui.progressUndo=null;
     ui.tab=t; render();
   });
 
@@ -1308,6 +1364,7 @@ function wire(){
   const ut=$main.querySelector("#upNextTap"); if(ut) ut.onclick=()=>{ ui.planDetailOpen=!ui.planDetailOpen; render(); };
   $main.querySelectorAll("[data-setslot]").forEach(row=>row.onclick=()=>{
     const i=+row.dataset.setslot, cur=currentProgress();
+    setProgressUndo();
     store.progress={phaseIdx:cur.phaseIdx, weekInPhase:cur.weekInPhase, slot:i};
     ui.planDetailOpen=false; save(); render();
   });
@@ -1317,13 +1374,18 @@ function wire(){
   $main.querySelectorAll("[data-phasestep]").forEach(b=>b.onclick=()=>{
     const dir=+b.dataset.phasestep, cur=currentProgress();
     const newIdx=Math.max(0,Math.min(PHASES.length-1,cur.phaseIdx+dir));
+    setProgressUndo();
     store.progress={phaseIdx:newIdx, weekInPhase:1, slot:0}; save(); render();
   });
   $main.querySelectorAll("[data-weekstep]").forEach(b=>b.onclick=()=>{
     const dir=+b.dataset.weekstep, cur=currentProgress();
     const newWk=Math.max(1,Math.min(cur.phase.weeks,cur.weekInPhase+dir));
+    setProgressUndo();
     store.progress={phaseIdx:cur.phaseIdx, weekInPhase:newWk, slot:0}; save(); render();
   });
+  const up=$main.querySelector("#undoProgress"); if(up) up.onclick=()=>{
+    if(ui.progressUndo){ store.progress={...ui.progressUndo.progress}; ui.progressUndo=null; save(); render(); }
+  };
   const cc=$main.querySelector("#copyCorrupt"); if(cc) cc.onclick=()=>{
     const text=localStorage.getItem(KEY+"-corrupt-backup")||"";
     const done=()=>{ cc.textContent="Copied"; setTimeout(()=>{ cc.textContent="Copy backup"; },1800); };
