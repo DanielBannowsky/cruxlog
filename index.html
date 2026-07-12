@@ -109,9 +109,7 @@
 
   .save{width:100%; border:none; border-radius:14px; padding:16px; font-size:16px;
     font-weight:800; letter-spacing:.3px; background:var(--panel2); color:var(--faint);
-    display:flex; align-items:center; justify-content:center; gap:8px; transition:background .2s;
-    position:sticky; bottom:calc(70px + env(safe-area-inset-bottom)); z-index:4;
-    box-shadow:0 4px 16px rgba(0,0,0,.4);}
+    display:flex; align-items:center; justify-content:center; gap:8px; transition:background .2s;}
   .save.ready{background:var(--accent); color:#0E1418;}
   .save.flash{background:var(--good); color:#0E1418;}
   .save svg{width:18px; height:18px;}
@@ -219,7 +217,6 @@ const SORENESS = {
   tired:{label:"Tired",dot:"var(--tweaky)"},
   sore:{label:"Sore",dot:"var(--pain)"},
 };
-const SEND_TYPE = { flash:{label:"Flash"}, redpoint:{label:"Redpoint"} };
 const SCHEMA_VERSION = 1; // bump + add a migration step in load() when the stored shape changes
 const DEFAULTS = {
   version: SCHEMA_VERSION,
@@ -633,7 +630,7 @@ function setProgressUndo(){
 function blankForm(){
   return { type:"climb", date:todayStr(), grades:[], protocol:"repeater", edge:20, grip:"half",
     addedLb:0, sets:5, entries:blankLiftEntries(), finger:null, effort:null, notes:"",
-    sleep:null, soreness:null, warmedUp:false, gradeRole:null, sendType:null };
+    sleep:null, soreness:null, warmedUp:false, gradeRole:null };
 }
 /* Applies data-driven suggestions to a form — only safe to call once `store` is loaded. */
 function applySuggestions(f){
@@ -807,6 +804,7 @@ function renderLog(){
   if(f.type==="climb"){
     const role=f.gradeRole||"volume";
     const [lo,hi]=gradeRangeFor(role);
+    const loggedGrades=Object.keys(gc).map(Number).sort((a,b)=>b-a);
     body=`<div class="field"><div class="flabel">Sends by grade</div>
       <div class="hint" style="margin-bottom:8px">Target: <strong style="color:var(--accent)">${gradeRangeText(role)}</strong></div>
       <div class="grades">${GRADE_COLORS.map((col,g)=>{
@@ -814,12 +812,15 @@ function renderLog(){
         const suggested = g>=lo && g<=hi;
         return `<button class="grade" data-grade="${g}"
           style="border-color:${n?col:suggested?"var(--accent)":"var(--line)"};background:${n?col+"26":suggested?"rgba(111,179,201,.10)":"var(--panel)"};color:${n?"var(--ink)":"var(--sub)"}">
-          V${g}${n?`<span class="badge" data-graderemove="${g}" style="background:${col}">${n}</span>`:""}</button>`;
+          V${g}${n?`<span class="badge">${n}</span>`:""}</button>`;
       }).join("")}</div>
-      <div class="hint">Tap grade to add · tap count to remove</div></div>
-      <div class="field"><div class="flabel">Send type (optional)</div>
-        <div class="row3">${Object.entries(SEND_TYPE).map(([k,x])=>
-          `<button class="effortchip ${f.sendType===k?"on":""}" data-sendtype="${k}">${x.label}</button>`).join("")}</div></div>`;
+      <div class="hint">Tap grade to add a send</div></div>
+      ${loggedGrades.length?`<div class="field"><div class="flabel">Logged this session</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${loggedGrades.map(g=>`<div class="liftrow"><div class="name">V${g}</div>
+            <span style="flex:1;color:var(--faint);font-size:13px">×${gc[g]}</span>
+            <button class="del" data-graderemove="${g}">${I.trash}Remove one</button></div>`).join("")}
+        </div></div>`:""}`;
   } else if(f.type==="hang"){
     const sugLb=suggestHangLoad(f.protocol);
     body=`<div class="field"><div class="flabel">Hangboard</div>
@@ -955,7 +956,7 @@ function renderHistory(){
           ? `<button class="del confirm" data-del="${s.id}">${I.trash}Confirm?</button>`
           : `<button class="del" data-del="${s.id}">${I.trash}Delete</button>`}
       </div>
-      <div class="hdetail">${esc(detailOf(s))}${s.sendType?` · ${SEND_TYPE[s.sendType].label}`:""}</div>
+      <div class="hdetail">${esc(detailOf(s))}</div>
       ${(s.sleep||s.soreness)?`<div class="hnotes">${[s.sleep?SLEEP[s.sleep].label+" sleep":null, s.soreness?SORENESS[s.soreness].label.toLowerCase():null].filter(Boolean).join(" · ")}</div>`:""}
       ${s.intensityFlag?`<div class="hnotes" style="color:var(--tweaky)">Logged harder than planned (RPE ${s.intensityFlag.actual} vs ~${s.intensityFlag.target})</div>`:""}
       ${s.notes?`<div class="hnotes">${esc(s.notes)}</div>`:""}
@@ -1201,7 +1202,6 @@ function loadSessionIntoForm(sess){
   f.finger=sess.finger||null;
   f.sleep=sess.sleep||null; f.soreness=sess.soreness||null; f.warmedUp=!!sess.warmedUp;
   f.effort=EFFORT.find(e=>e.rpe===sess.rpe)?.key || null;
-  f.sendType=sess.sendType||null;
   if(sess.type==="climb") f.grades=[...(sess.grades||[])];
   if(sess.type==="hang"){
     const h=sess.hang||{};
@@ -1225,7 +1225,7 @@ function commitSave(){
   if(f.sleep) s.sleep=f.sleep;
   if(f.soreness) s.soreness=f.soreness;
   if(f.warmedUp) s.warmedUp=true;
-  if(f.type==="climb"){ s.grades=[...f.grades]; if(f.sendType) s.sendType=f.sendType; }
+  if(f.type==="climb") s.grades=[...f.grades];
   if(f.type==="hang") s.hang={protocol:f.protocol,edge:f.edge,addedLb:f.addedLb,sets:f.sets,grip:f.grip};
   if(f.type==="lift"){
     const entries={};
@@ -1282,10 +1282,9 @@ function wire(){
     b.onclick=()=>{ bumpGrade(g,1); render(); };
     b.oncontextmenu=e=>{ e.preventDefault(); bumpGrade(g,-1); render(); };
   });
-  // remove-a-send: a direct tap target on the count badge, since iOS Safari's long-press
-  // callout (text-selection popup) unreliably intercepts custom long-press gestures.
-  $main.querySelectorAll("[data-graderemove]").forEach(b=>b.onclick=(e)=>{
-    e.stopPropagation();
+  // remove-a-send: its own row in a dedicated list below the grid, not a tiny nested
+  // badge overlapping the neighboring grid cell (that overlap made removal unreliable).
+  $main.querySelectorAll("[data-graderemove]").forEach(b=>b.onclick=()=>{
     bumpGrade(+b.dataset.graderemove,-1); render();
   });
   // steppers
@@ -1315,8 +1314,6 @@ function wire(){
   $main.querySelectorAll("[data-finger]").forEach(b=>b.onclick=()=>{ ui.form.finger=b.dataset.finger; render(); });
   $main.querySelectorAll("[data-effort]").forEach(b=>b.onclick=()=>{
     const v=b.dataset.effort; ui.form.effort=ui.form.effort===v?null:v; render(); });
-  $main.querySelectorAll("[data-sendtype]").forEach(b=>b.onclick=()=>{
-    const v=b.dataset.sendtype; ui.form.sendType=ui.form.sendType===v?null:v; render(); });
   $main.querySelectorAll("[data-sleep]").forEach(b=>b.onclick=()=>{
     const v=b.dataset.sleep; ui.form.sleep=ui.form.sleep===v?null:v; render(); });
   $main.querySelectorAll("[data-soreness]").forEach(b=>b.onclick=()=>{

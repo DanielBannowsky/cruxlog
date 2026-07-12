@@ -105,7 +105,7 @@ Grip-strength-to-bodyweight ratios (added-weight max hang on 20mm edge, 10s) are
 Other things worth logging per session so the app can flag stalls/overtraining:
 - Session RPE (1-10)
 - Finger/elbow/shoulder soreness flag (0-3 scale) before each hangboard/limit session — auto-suggest a deload if soreness ≥2 for 2 sessions in a row
-- Grade sent/attempted, flash vs redpoint
+- Grade sent/attempted
 - Days since last high-intensity finger session (enforce the 48h rule)
 
 ## Injury-risk guardrails (implemented in the app's Plan tab)
@@ -133,7 +133,6 @@ Earlier drafts of this plan wrote static grade ranges ("V0–V3") and load targe
 
 **Suggested lift load** works the same way, but only for weighted pull-up, overhead press, and squat — the three lifts this plan's Lift Day Protocol explicitly treats as progressive-overload targets. The other three (band pull-apart, wrist extensor curl, hanging leg raise) are prehab/maintenance by design, so the app suggests holding steady rather than pushing them, matching the doc's own guidance that they're "not the point of the session." Progression on the three target lifts only auto-suggests +5lb during Strength Base, and only when the previous top set actually hit the rep target (3 reps for pull-up, 5 for OHP, 8 for squat) with no pain/tweaky flag on that session — during Power/Performance the suggestion holds at the current weight even after a clean set, since those phases are explicitly maintenance for lifting.
 
-**Send type** (flash vs. redpoint) can now be logged per climbing session, per this doc's original benchmark-tracking list below — it's session-level, not per-individual-send, to keep the logging flow quick.
 
 This is real autoregulation (Source: standard resistance-training autoregulation practice — adjusting load session-to-session from actual performance/RPE rather than a fixed pre-written progression scheme), but it's still a simple rule-based heuristic, not a substitute for a coach watching your actual bar speed or hang quality. Treat every suggested number as a starting point to adjust by feel, not gospel.
 
