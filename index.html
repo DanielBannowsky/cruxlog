@@ -63,9 +63,10 @@
   .grade{position:relative; border-radius:12px; border:1.5px solid var(--line);
     background:var(--panel); color:var(--sub); padding:12px 0;
     font-family:ui-monospace,monospace; font-weight:800; font-size:16px;}
-  .grade .badge{position:absolute; top:-7px; right:-7px; min-width:22px; height:22px;
-    border-radius:11px; color:#0E1418; font-size:12px; font-weight:800;
-    display:flex; align-items:center; justify-content:center; padding:0 5px;}
+  .grade .badge{position:absolute; top:-9px; right:-9px; min-width:26px; height:26px;
+    border-radius:13px; color:#0E1418; font-size:12px; font-weight:800; z-index:1;
+    display:flex; align-items:center; justify-content:center; padding:0 6px;
+    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;}
   .hint{color:var(--faint); font-size:11px; margin-top:8px;}
 
   /* stepper block */
@@ -743,9 +744,9 @@ function renderLog(){
         const suggested = g>=lo && g<=hi;
         return `<button class="grade" data-grade="${g}"
           style="border-color:${n?col:suggested?"var(--accent)":"var(--line)"};background:${n?col+"26":suggested?"rgba(111,179,201,.10)":"var(--panel)"};color:${n?"var(--ink)":"var(--sub)"}">
-          V${g}${n?`<span class="badge" style="background:${col}">${n}</span>`:""}</button>`;
+          V${g}${n?`<span class="badge" data-graderemove="${g}" style="background:${col}">${n}</span>`:""}</button>`;
       }).join("")}</div>
-      <div class="hint">Tap to add a send · long-press or right-click to remove one</div></div>`;
+      <div class="hint">Tap a grade to add a send · tap the count badge to remove one</div></div>`;
   } else if(f.type==="hang"){
     const sugLb=suggestHangLoad(f.protocol);
     body=`<div class="field"><div class="flabel">Hangboard</div>
@@ -1147,8 +1148,12 @@ function wire(){
     const g=+b.dataset.grade;
     b.onclick=()=>{ bumpGrade(g,1); render(); };
     b.oncontextmenu=e=>{ e.preventDefault(); bumpGrade(g,-1); render(); };
-    let t; b.ontouchstart=()=>{ t=setTimeout(()=>{ bumpGrade(g,-1); render(); },500); };
-    b.ontouchend=()=>clearTimeout(t); b.ontouchmove=()=>clearTimeout(t);
+  });
+  // remove-a-send: a direct tap target on the count badge, since iOS Safari's long-press
+  // callout (text-selection popup) unreliably intercepts custom long-press gestures.
+  $main.querySelectorAll("[data-graderemove]").forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation();
+    bumpGrade(+b.dataset.graderemove,-1); render();
   });
   // steppers
   $main.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
