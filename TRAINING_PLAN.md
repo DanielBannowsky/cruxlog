@@ -61,21 +61,24 @@ A "session-week" completes once you've logged every session in that phase's list
 
 ## Lift Day Protocol (1x/week, every phase)
 
-One dedicated lift session per session-week, every phase, no exceptions. Same 5 exercises throughout the whole 26-session-week plan — only the load/intensity target changes by phase. This is deliberately not a full powerlifting split: the goal is a strength floor and injury-resilience, not a second training axis competing with climbing/hangboard recovery.
+One dedicated lift session per session-week, every phase, no exceptions. Same 6 exercises throughout the whole 26-session-week plan — only the load/intensity target changes by phase. This is deliberately not a full powerlifting split: the goal is a strength floor and injury-resilience, not a second training axis competing with climbing/hangboard recovery.
 
 | Exercise | Sets × Reps | Why it's here |
 |---|---|---|
 | Weighted pull-up | 4×3-5 | Primary strength driver — raises the ceiling that power/power-endurance climbing work draws from. Source: Anderson & Anderson, *RCTM* "Foundational Training." |
 | Overhead press | 3×5 | Structural push/pull balance — reduces shoulder overuse risk from climbing's pull-dominant loading. |
+| Squat (or leg press) | 3×8-10 | General lower-body strength and injury resilience — not a climbing-performance lever the way finger/pull strength is, but supports overall athleticism, body composition, and drop-landing/fall tolerance. Source: original rationale in this doc's guiding principles — general strength training raises resilience even where legs aren't the limiter. |
 | Band pull-apart / face pull | 3×15 | Scapular/rotator-cuff prehab. Source: standard recommendation across climbing injury-prevention literature (Schöffl et al.). |
 | Wrist extensor curl | 3×12 | Elbow prehab — protects against golfer's/tennis elbow from high hangboard + pulling volume. |
 | Hanging leg raise | 3×8-10 | Core strength for body tension on steep terrain; also loads the same grip briefly under low finger-intensity conditions. |
 
 Per-phase intensity target:
 - **Reconditioning:** bodyweight or very light added weight, clean full-range reps — re-grooving patterns, not chasing numbers.
-- **Strength Base:** progressive overload — add weight to the pull-up and OHP session over session as long as reps stay clean.
+- **Strength Base:** progressive overload — add weight to the pull-up, OHP, and squat session over session as long as reps stay clean.
 - **Power & Power-Endurance:** maintain current loads, no new PRs — climbing sessions are the priority this phase.
 - **Performance / Send:** light maintenance only, enough to keep the signal alive without leaving you sore for a project day.
+
+Band pull-apart, wrist extensor curl, and hanging leg raise stay at a steady, non-maxing effort in every phase — they're prehab, not progressive-overload targets, so the app never auto-suggests adding weight to them.
 
 Antagonist and wrist work (rows 2-4) stay in at a steady, non-maxing effort in every phase — they're prehab, not the point of the session, and skipping them is how overuse injuries creep in later.
 
@@ -128,7 +131,7 @@ Earlier drafts of this plan wrote static grade ranges ("V0–V3") and load targe
 
 **Suggested hangboard load** is autoregulated from your own session history, not a fixed number: take your last logged session at that protocol (max hang or repeaters), and if you finished it at RPE ≤7 with no pain, add 5lb; if it was RPE 8+ or pain was flagged, hold; during a deload session-week, suggest half the normal load regardless. With no prior max-hang sessions, it seeds from your logged max-hang benchmark if you have one, otherwise starts at bodyweight.
 
-**Suggested lift load** works the same way, but only for weighted pull-up and overhead press — the two lifts this plan's Lift Day Protocol explicitly treats as progressive-overload targets. The other three (band pull-apart, wrist extensor curl, hanging leg raise) are prehab/maintenance by design, so the app suggests holding steady rather than pushing them, matching the doc's own guidance that they're "not the point of the session." Progression on the two target lifts only auto-suggests +5lb during Strength Base, and only when the previous top set actually hit the rep target — during Power/Performance the suggestion holds at the current weight even after a clean set, since those phases are explicitly maintenance for lifting.
+**Suggested lift load** works the same way, but only for weighted pull-up, overhead press, and squat — the three lifts this plan's Lift Day Protocol explicitly treats as progressive-overload targets. The other three (band pull-apart, wrist extensor curl, hanging leg raise) are prehab/maintenance by design, so the app suggests holding steady rather than pushing them, matching the doc's own guidance that they're "not the point of the session." Progression on the three target lifts only auto-suggests +5lb during Strength Base, and only when the previous top set actually hit the rep target (3 reps for pull-up, 5 for OHP, 8 for squat) — during Power/Performance the suggestion holds at the current weight even after a clean set, since those phases are explicitly maintenance for lifting.
 
 This is real autoregulation (Source: standard resistance-training autoregulation practice — adjusting load session-to-session from actual performance/RPE rather than a fixed pre-written progression scheme), but it's still a simple rule-based heuristic, not a substitute for a coach watching your actual bar speed or hang quality. Treat every suggested number as a starting point to adjust by feel, not gospel.
 

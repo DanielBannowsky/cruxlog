@@ -186,6 +186,7 @@ const GRADE_COLORS = ["#5E8A96","#5E9689","#5F9C7E","#79A066","#A3A055","#C0983F
 const LIFT_DAY = [
   {key:"pullup",    name:"Weighted pull-up",         short:"Pull-up",    sets:4, repTarget:"3-5",  bw:true},
   {key:"ohp",       name:"Overhead press",           short:"OHP",        sets:3, repTarget:"5"},
+  {key:"squat",     name:"Squat (or leg press)",     short:"Squat",      sets:3, repTarget:"8-10"},
   {key:"pullapart", name:"Band pull-apart / face pull", short:"Pull-apart", sets:3, repTarget:"15"},
   {key:"wristext",  name:"Wrist extensor curl",      short:"Wrist ext",  sets:3, repTarget:"12"},
   {key:"hlr",       name:"Hanging leg raise",        short:"Leg raise",  sets:3, repTarget:"8-10"},
@@ -341,6 +342,16 @@ function resolveSlotText(slot){
   const sub=(s)=> s ? s.replace(/\{\{grade\}\}/g,grade).replace(/\{\{load\}\}/g,load) : s;
   return {...slot, detail:sub(slot.detail), full:sub(slot.full)};
 }
+/* Finds the plan slot (in the current phase) that best matches whatever the Log form is
+   currently set to, so the Log tab can always show full protocol detail — not just when
+   you arrived there via the Plan tab's "Log this session" button. */
+function findMatchingSlot(f){
+  const slots=currentProgress().slots;
+  if(f.type==="hang") return slots.find(s=>s.type==="hang"&&s.protocol===f.protocol) || slots.find(s=>s.type==="hang");
+  if(f.type==="climb") return slots.find(s=>s.type==="climb"&&s.gradeRole===(f.gradeRole||"volume")) || slots.find(s=>s.type==="climb");
+  if(f.type==="lift") return slots.find(s=>s.type==="lift");
+  return null;
+}
 
 /* ---- dynamic load prescription ----
    Autoregulated progressive overload: hold/deload after a hard or painful session, add load
@@ -360,7 +371,7 @@ function suggestHangLoad(protocol){
   if(last.rpe!=null && last.rpe<=7) return base+5;
   return base;
 }
-const PROGRESSABLE_LIFTS = new Set(["pullup","ohp"]); // per plan doc — the other 3 are prehab/maintenance, not progressive-overload targets
+const PROGRESSABLE_LIFTS = new Set(["pullup","ohp","squat"]); // per plan doc — the other 3 are prehab/maintenance, not progressive-overload targets
 function suggestLiftWeight(key){
   const hist=[...store.sessions].filter(s=>s.type==="lift"&&s.lift&&s.lift.entries&&s.lift.entries[key]&&s.lift.entries[key].length)
     .sort((a,b)=>a.date<b.date?1:-1);
@@ -370,7 +381,7 @@ function suggestLiftWeight(key){
   const cur=currentProgress();
   if(cur.isDeload) return Math.round(topWeight*0.5);
   if(!PROGRESSABLE_LIFTS.has(key) || cur.phase.key!=="strength") return topWeight;
-  const targetReps = key==="pullup" ? 3 : 5;
+  const targetReps = key==="pullup" ? 3 : key==="squat" ? 8 : 5;
   const topSet=rows.find(r=>Number(r.weight)===topWeight);
   const repsHit = topSet && Number(topSet.reps)>=targetReps;
   const painFlag = hist[0].finger==="pain";
@@ -809,6 +820,13 @@ function renderLog(){
         <button class="effortchip ${f.warmedUp?"on":""}" data-warmedup="1" style="margin-top:10px;width:100%">${f.warmedUp?I.check+"Warmed up":"Mark as warmed up"}</button>
       </div></div>` : "";
 
+  const matchSlot=findMatchingSlot(f);
+  const info=matchSlot?resolveSlotText(matchSlot):null;
+  const infoCard=info?`<div class="field"><div style="background:var(--panel2);border-radius:12px;padding:12px 14px;">
+      <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">${esc(info.label)} — ${esc(currentProgress().phase.name)}</div>
+      <div class="hint" style="line-height:1.5">${esc(info.full||info.detail||"")}</div>
+    </div></div>`:"";
+
   return errBanner()+`
     ${editing?`<div class="hint" style="margin-bottom:10px">Editing a past session — saving will overwrite it instead of logging a new one.</div>`:""}
     <div class="seg" data-seg="type">
@@ -820,7 +838,7 @@ function renderLog(){
       <input type="date" id="date" value="${f.date}">
     </div>
     <div class="rule"></div>
-    ${warmup}${body}${finger}${effort}${readiness}${notes}${saveBtn}`;
+    ${infoCard}${warmup}${body}${finger}${effort}${readiness}${notes}${saveBtn}`;
 }
 
 function stepper(lab,key,val,suf){
