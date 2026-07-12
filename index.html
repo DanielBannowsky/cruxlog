@@ -218,7 +218,9 @@ const SORENESS = {
   sore:{label:"Sore",dot:"var(--pain)"},
 };
 const SEND_TYPE = { flash:{label:"Flash"}, redpoint:{label:"Redpoint"} };
+const SCHEMA_VERSION = 1; // bump + add a migration step in load() when the stored shape changes
 const DEFAULTS = {
+  version: SCHEMA_VERSION,
   sessions:[],
   liftTargets:{chin:0,ohp:null,squat:null,row:null,bench:null,dl:null},
   lastLiftDay:null, dailyChecks:{},
@@ -618,7 +620,7 @@ function detailOf(s){
 }
 
 /* ============================ state ============================ */
-let store, saveError=false;
+let store, saveError=false, loadError=false;
 const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false, chartTap:null, editingId:null, planPosOpen:false };
 
 function blankForm(){
@@ -645,9 +647,26 @@ function freshForm(type,protocol,gradeRole){
   if(gradeRole) f.gradeRole=gradeRole;
   return applySuggestions(f);
 }
+function deepMerge(base,override){
+  const out={...base};
+  for(const k in override){
+    const bv=base[k], ov=override[k];
+    if(ov && typeof ov==="object" && !Array.isArray(ov) && bv && typeof bv==="object" && !Array.isArray(bv)) out[k]=deepMerge(bv,ov);
+    else out[k]=ov;
+  }
+  return out;
+}
 function load(){
-  try{ const raw=localStorage.getItem(KEY); store={...DEFAULTS,...(raw?JSON.parse(raw):{})}; }
-  catch{ store={...DEFAULTS}; }
+  const raw=localStorage.getItem(KEY);
+  try{
+    store=deepMerge(DEFAULTS, raw?JSON.parse(raw):{});
+  }catch{
+    // Preserve the unreadable data instead of silently discarding it, so it can still be
+    // recovered (e.g. pasted to Claude for manual reconstruction) rather than just lost.
+    try{ if(raw) localStorage.setItem(KEY+"-corrupt-backup", raw); }catch{}
+    store={...DEFAULTS};
+    loadError=true;
+  }
 }
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(store)); saveError=false; }
@@ -677,8 +696,14 @@ function renderNav(){
 }
 
 function errBanner(){
-  return saveError ? `<div style="background:#3A2622;color:#F0C6BE;padding:10px 16px;font-size:13px;">
-    ⚠︎ Couldn't save to this device's storage. Your log may not persist here.</div>` : "";
+  const parts=[];
+  if(loadError) parts.push(`<div style="background:#3A2622;color:#F0C6BE;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <span>⚠︎ Saved data couldn't be read and was reset. A backup of the unreadable data was kept.</span>
+    <button id="copyCorrupt" style="background:none;border:1px solid #F0C6BE;color:#F0C6BE;border-radius:6px;padding:4px 8px;font-size:12px;">Copy backup</button>
+    </div>`);
+  if(saveError) parts.push(`<div style="background:#3A2622;color:#F0C6BE;padding:10px 16px;font-size:13px;">
+    ⚠︎ Couldn't save to this device's storage. Your log may not persist here.</div>`);
+  return parts.join("");
 }
 
 function renderPlan(){
@@ -973,7 +998,7 @@ function renderProgress(){
       ${ui.backed?I.check+"Backup downloaded":I.down+"Back up data (JSON)"}</button>
     <button class="btn2" id="restore">${I.up}Restore from backup</button>
     ${ui.pendingImport?`<div style="background:#22303A;border-radius:12px;padding:14px;margin-bottom:10px;">
-      <div style="font-size:13px;color:var(--ink);margin-bottom:10px">Restore ${ui.pendingImport.count} sessions? This replaces what's currently on this device.</div>
+      <div style="font-size:13px;color:var(--ink);margin-bottom:10px">Restore ${ui.pendingImport.count} sessions? This replaces what's currently on this device.${ui.pendingImport.skipped?` (${ui.pendingImport.skipped} skipped: invalid format)`:""}</div>
       <div style="display:flex;gap:8px">
         <button class="btn2" id="cancelImport" style="margin:0;flex:1">Cancel</button>
         <button class="btn2" id="confirmImport" style="margin:0;flex:1;background:var(--good);color:#0E1418;border-color:var(--good)">Restore</button>
@@ -1299,12 +1324,18 @@ function wire(){
     const newWk=Math.max(1,Math.min(cur.phase.weeks,cur.weekInPhase+dir));
     store.progress={phaseIdx:cur.phaseIdx, weekInPhase:newWk, slot:0}; save(); render();
   });
+  const cc=$main.querySelector("#copyCorrupt"); if(cc) cc.onclick=()=>{
+    const text=localStorage.getItem(KEY+"-corrupt-backup")||"";
+    const done=()=>{ cc.textContent="Copied"; setTimeout(()=>{ cc.textContent="Copy backup"; },1800); };
+    if(navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text,done));
+    else fallbackCopy(text,done);
+  };
   // progress buttons
   const ex=$main.querySelector("#export"); if(ex) ex.onclick=doExport;
   const bk=$main.querySelector("#backup"); if(bk) bk.onclick=doBackup;
   const rs=$main.querySelector("#restore"); if(rs) rs.onclick=()=>document.getElementById("importer").click();
   const ci=$main.querySelector("#confirmImport"); if(ci) ci.onclick=()=>{
-    store={...DEFAULTS,...ui.pendingImport.data}; ui.pendingImport=null; save(); render();
+    store=deepMerge(DEFAULTS, ui.pendingImport.data); ui.pendingImport=null; save(); render();
   };
   const xi=$main.querySelector("#cancelImport"); if(xi) xi.onclick=()=>{ ui.pendingImport=null; render(); };
   // benchmarks
@@ -1369,13 +1400,24 @@ function doBackup(){
   document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   ui.backed=true; render(); setTimeout(()=>{ ui.backed=false; render(); },1800);
 }
+function validSession(s){
+  if(!s||typeof s!=="object") return false;
+  if(!s.id||!s.date||!["climb","hang","lift"].includes(s.type)) return false;
+  if(s.type==="climb" && !Array.isArray(s.grades)) return false;
+  if(s.type==="hang" && (!s.hang||typeof s.hang!=="object")) return false;
+  if(s.type==="lift" && (!s.lift||typeof s.lift!=="object")) return false;
+  return true;
+}
 document.getElementById("importer").onchange=e=>{
   const file=e.target.files[0]; if(!file)return;
   const r=new FileReader();
   r.onload=()=>{ try{
       const data=JSON.parse(r.result);
       if(!data||!Array.isArray(data.sessions)) throw 0;
-      ui.pendingImport={count:data.sessions.length,data}; ui.importError=null; render();
+      const validSessions=data.sessions.filter(validSession);
+      const skipped=data.sessions.length-validSessions.length;
+      ui.pendingImport={count:validSessions.length, skipped, data:{...data,sessions:validSessions}};
+      ui.importError=null; render();
     }catch{ ui.importError="That doesn't look like a CruxLog backup file."; render();
       setTimeout(()=>{ ui.importError=null; render(); },3000); } };
   r.readAsText(file); e.target.value="";
