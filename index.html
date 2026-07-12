@@ -180,8 +180,11 @@
 "use strict";
 /* ============================ constants ============================ */
 const KEY = "climb-tracker-v1";
+/* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
+   (clamped up to V14-V16 elsewhere) never index past the end of this array. */
 const GRADE_COLORS = ["#5E8A96","#5E9689","#5F9C7E","#79A066","#A3A055","#C0983F",
-  "#CE8B44","#D57947","#D0603F","#C24F45","#B04343"];
+  "#CE8B44","#D57947","#D0603F","#C24F45","#B04343",
+  "#9F3C56","#8C3568","#792E7A","#66278C","#53209E","#4019B0"];
 /* One lift day/week, every phase — see TRAINING_PLAN.md "Lift Day Protocol". */
 const LIFT_DAY = [
   {key:"pullup",    name:"Weighted pull-up",         short:"Pull-up",    sets:4, repTarget:"3-5",  bw:true},
@@ -214,6 +217,7 @@ const SORENESS = {
   tired:{label:"Tired",dot:"var(--tweaky)"},
   sore:{label:"Sore",dot:"var(--pain)"},
 };
+const SEND_TYPE = { flash:{label:"Flash"}, redpoint:{label:"Redpoint"} };
 const DEFAULTS = {
   sessions:[],
   liftTargets:{chin:0,ohp:null,squat:null,row:null,bench:null,dl:null},
@@ -314,11 +318,23 @@ function computeComfortableGrade(){
   for(let g=0; g<=16; g++){ if((counts[g]||0)>=3) best=g; }
   return best;
 }
+/* Layoff decay: detraining literature (Mujika & Padilla, cited in TRAINING_PLAN.md) says
+   capacity regresses after an extended gap. 1 grade back per 4-week block beyond a 3-week
+   grace period. New evidence (3+ sends at the old grade) overrides this immediately via
+   computeComfortableGrade(), so decay only affects the window before you've re-proven it. */
 function effectiveComfortableGrade(){
   const stored=store.settings.comfortableGrade;
   const computed=computeComfortableGrade();
-  if(computed!=null && (stored==null || computed>stored)) return computed;
-  return stored ?? Math.max(0,(store.settings.targetGrade??8)-4);
+  let cg = (computed!=null && (stored==null || computed>stored)) ? computed : (stored ?? Math.max(0,(store.settings.targetGrade??8)-4));
+  const lastClimb=[...store.sessions].filter(s=>s.type==="climb").sort((a,b)=>a.date<b.date?1:-1)[0];
+  if(lastClimb){
+    const gapDays=dayDiff(todayStr(),lastClimb.date);
+    if(gapDays>21){
+      const decay=Math.floor((Math.floor(gapDays/7)-3)/4)+1;
+      cg=Math.max(0,cg-decay);
+    }
+  }
+  return cg;
 }
 function gradeRangeFor(role){
   const cg=effectiveComfortableGrade();
@@ -367,7 +383,7 @@ function suggestHangLoad(protocol){
   const last=hist[0];
   const base=last.hang.addedLb??0;
   if(cur.isDeload) return Math.round(base*0.5);
-  if(last.finger==="pain") return base;
+  if(last.finger==="pain"||last.finger==="tweaky") return base;
   if(last.rpe!=null && last.rpe<=7) return base+5;
   return base;
 }
@@ -384,7 +400,7 @@ function suggestLiftWeight(key){
   const targetReps = key==="pullup" ? 3 : key==="squat" ? 8 : 5;
   const topSet=rows.find(r=>Number(r.weight)===topWeight);
   const repsHit = topSet && Number(topSet.reps)>=targetReps;
-  const painFlag = hist[0].finger==="pain";
+  const painFlag = hist[0].finger==="pain"||hist[0].finger==="tweaky";
   if(painFlag) return topWeight;
   return repsHit ? topWeight+5 : topWeight;
 }
@@ -423,8 +439,11 @@ function currentProgress(){
   const absWeek = donePhaseWeeks + Math.min(weekInPhase,phase.weeks);
   const gate = benchmarkGateStatus(phase.key);
   const held = gate.applies && gate.met===false && weekInPhase>phase.weeks;
+  // Deload every 4th week, PLUS the moment a phase confirms as held past its nominal length —
+  // an unmet benchmark after the full phase duration is itself a signal to back off before continuing.
+  const heldEntry = held && weekInPhase===phase.weeks+1;
   return {phaseIdx,phase,slots,weekInPhase,slot,absWeek,cap,gate,held,next:slots[slot],
-    isDeload:(phase.key==="strength"||phase.key==="power") && weekInPhase%4===0};
+    isDeload:(phase.key==="strength"||phase.key==="power") && (weekInPhase%4===0 || heldEntry)};
 }
 function advanceProgress(){
   const cur=currentProgress();
@@ -453,32 +472,39 @@ function computeGuardrails(store){
   const sessions=[...store.sessions].sort((a,b)=>a.date<b.date?1:-1);
   const fingerSessions=sessions.filter(FINGER_INTENSITY_TYPES);
 
-  if(fingerSessions.length>=2){
-    const d0=dayDiff(fingerSessions[0].date, fingerSessions[1].date);
-    if(Math.abs(d0)<=1){
-      out.push({level:"bad",text:"48h rule violated: finger-intensity sessions on consecutive days. Add rest day."});
-    }
+  // Scan all adjacent pairs in recent finger-intensity history, not just the single most recent —
+  // catches a violation buried a few sessions back (e.g. after a backfilled/edited entry).
+  const recentFinger=fingerSessions.slice(0,10);
+  const has48hViolation=recentFinger.some((s,i)=> i<recentFinger.length-1 && Math.abs(dayDiff(s.date,recentFinger[i+1].date))<=1);
+  if(has48hViolation){
+    out.push({level:"bad",text:"48h rule violated: finger-intensity sessions on consecutive days. Add rest day."});
   }
   const rollingCutoff=dayDiff(todayStr(),"1970-01-01")-7;
   const last7dFinger=fingerSessions.filter(s=>dayDiff(s.date,"1970-01-01")>rollingCutoff);
   if(last7dFinger.length>3){
     out.push({level:"warn",text:`Finger sessions: ${last7dFinger.length}/7d. Cap: 3/wk. Reduce frequency.`});
   }
-  const painTrail=sessions.filter(s=>s.finger).slice(0,2);
-  if(painTrail.length===2 && painTrail.every(s=>s.finger==="pain")){
+  // Widened pain-trend: catches alternating pain/tweaky patterns (e.g. pain -> good -> tweaky),
+  // not just two identical consecutive flags, since that's still a recurring-issue signal.
+  const recentFlags=sessions.filter(s=>s.finger).slice(0,3).map(s=>s.finger);
+  if(recentFlags[0]==="pain" && recentFlags[1]==="pain"){
     out.push({level:"bad",text:"Pain flagged: 2 consecutive sessions. Deload required."});
-  } else if(painTrail.length===2 && painTrail.every(s=>s.finger==="tweaky")){
-    out.push({level:"warn",text:"Tweaky: 2 consecutive sessions. Reduce next session intensity."});
+  } else if(recentFlags.filter(f=>f==="pain"||f==="tweaky").length>=2){
+    out.push({level:"warn",text:"Pain/tweaky in 2 of last 3 finger sessions. Reduce intensity."});
   }
 
   // acute:chronic workload ratio — overall session-count spike detection, not just finger sessions.
   // ACWR = last 7 days' session count / (last 28 days' average weekly count). >1.5 is the commonly
   // cited danger zone (Gabbett 2016) where sudden load jumps correlate with higher injury risk.
+  // Caveat: Gabbett's threshold was validated on team-sport athletes at 2-4 sessions/week; this
+  // plan runs 5-6/week baseline, so require >=2 chronic weeks of data (not 1) before evaluating,
+  // reducing false positives from thin history — the ratio itself still self-calibrates to your
+  // own baseline since chronicWeekly is computed from your actual logged pace, not an assumption.
   const nowEpoch=dayDiff(todayStr(),"1970-01-01");
   const acuteCount=sessions.filter(s=>dayDiff(s.date,"1970-01-01")>nowEpoch-7).length;
   const chronicCount=sessions.filter(s=>dayDiff(s.date,"1970-01-01")>nowEpoch-28).length;
   const chronicWeekly=chronicCount/4;
-  if(chronicWeekly>=1){
+  if(chronicWeekly>=2){
     const acwr=acuteCount/chronicWeekly;
     if(acwr>1.5){
       out.push({level:"warn",text:`ACWR ${acwr.toFixed(1)} (${acuteCount} sessions/7d vs ${chronicWeekly.toFixed(1)}/wk avg). Threshold: 1.5. Reduce volume.`});
@@ -598,7 +624,7 @@ const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:fal
 function blankForm(){
   return { type:"climb", date:todayStr(), grades:[], protocol:"repeater", edge:20, grip:"half",
     addedLb:0, sets:5, entries:blankLiftEntries(), finger:null, effort:null, notes:"",
-    sleep:null, soreness:null, warmedUp:false, gradeRole:null };
+    sleep:null, soreness:null, warmedUp:false, gradeRole:null, sendType:null };
 }
 /* Applies data-driven suggestions to a form — only safe to call once `store` is loaded. */
 function applySuggestions(f){
@@ -757,7 +783,10 @@ function renderLog(){
           style="border-color:${n?col:suggested?"var(--accent)":"var(--line)"};background:${n?col+"26":suggested?"rgba(111,179,201,.10)":"var(--panel)"};color:${n?"var(--ink)":"var(--sub)"}">
           V${g}${n?`<span class="badge" data-graderemove="${g}" style="background:${col}">${n}</span>`:""}</button>`;
       }).join("")}</div>
-      <div class="hint">Tap grade to add · tap count to remove</div></div>`;
+      <div class="hint">Tap grade to add · tap count to remove</div></div>
+      <div class="field"><div class="flabel">Send type (optional)</div>
+        <div class="row3">${Object.entries(SEND_TYPE).map(([k,x])=>
+          `<button class="effortchip ${f.sendType===k?"on":""}" data-sendtype="${k}">${x.label}</button>`).join("")}</div></div>`;
   } else if(f.type==="hang"){
     const sugLb=suggestHangLoad(f.protocol);
     body=`<div class="field"><div class="flabel">Hangboard</div>
@@ -777,13 +806,13 @@ function renderLog(){
     body=LIFT_DAY.map(L=>liftBlock(L,f.entries[L.key]||[])).join("");
   }
 
-  const finger = f.type!=="lift" ? `<div class="field"><div class="flabel">Finger status</div>
+  const finger = `<div class="field"><div class="flabel">Finger status${f.type==="lift"?" (optional)":""}</div>
     <div class="row3">${Object.entries(FINGER).map(([k,x])=>{
       const on=f.finger===k;
       return `<button class="chip" data-finger="${k}"
         style="border-color:${on?x.dot:"var(--line)"};background:${on?"rgba(255,255,255,.05)":"var(--panel)"};color:${on?"var(--ink)":"var(--sub)"}">
         <span class="dot" style="background:${x.dot}"></span>${x.label}</button>`;
-    }).join("")}</div></div>` : "";
+    }).join("")}</div></div>`;
 
   const effort = `<div class="field"><div class="flabel">Effort (optional)</div>
     <div class="row3">${EFFORT.map(e=>
@@ -812,7 +841,10 @@ function renderLog(){
     ${ui.flash?I.check+(editing?"Updated":"Logged"):(editing?"Update session":"Save session")}</button>
     ${editing?`<div class="hint" style="text-align:center;margin-top:10px"><span id="cancelEdit" style="text-decoration:underline;cursor:pointer">Cancel edit</span></div>`:""}`;
 
-  const highIntensity = (f.type==="hang"&&f.protocol==="max") || f.effort==="hard" || f.effort==="max";
+  const matchSlot=findMatchingSlot(f);
+  // Trigger pre-session, from the plan's target intensity for this slot — not only post-hoc
+  // once effort/RPE gets logged after the fact, which is backwards for an injury-prevention prompt.
+  const highIntensity = (matchSlot?.targetRpe??0)>=8 || (f.type==="hang"&&f.protocol==="max") || f.effort==="hard" || f.effort==="max";
   const warmup = highIntensity ? `<div class="field">
       <div style="background:#22303A;border-radius:12px;padding:12px 14px;">
         <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">Warm-up required</div>
@@ -820,7 +852,6 @@ function renderLog(){
         <button class="effortchip ${f.warmedUp?"on":""}" data-warmedup="1" style="margin-top:10px;width:100%">${f.warmedUp?I.check+"Warmed up":"Mark as warmed up"}</button>
       </div></div>` : "";
 
-  const matchSlot=findMatchingSlot(f);
   const info=matchSlot?resolveSlotText(matchSlot):null;
   const infoCard=info?`<div class="field"><div style="background:var(--panel2);border-radius:12px;padding:12px 14px;">
       <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">${esc(info.label)} — ${esc(currentProgress().phase.name)}</div>
@@ -891,7 +922,7 @@ function renderHistory(){
           ? `<button class="del confirm" data-del="${s.id}">${I.trash}Confirm?</button>`
           : `<button class="del" data-del="${s.id}">${I.trash}Delete</button>`}
       </div>
-      <div class="hdetail">${esc(detailOf(s))}</div>
+      <div class="hdetail">${esc(detailOf(s))}${s.sendType?` · ${SEND_TYPE[s.sendType].label}`:""}</div>
       ${(s.sleep||s.soreness)?`<div class="hnotes">${[s.sleep?SLEEP[s.sleep].label+" sleep":null, s.soreness?SORENESS[s.soreness].label.toLowerCase():null].filter(Boolean).join(" · ")}</div>`:""}
       ${s.intensityFlag?`<div class="hnotes" style="color:var(--tweaky)">Logged harder than planned (RPE ${s.intensityFlag.actual} vs ~${s.intensityFlag.target})</div>`:""}
       ${s.notes?`<div class="hnotes">${esc(s.notes)}</div>`:""}
@@ -1090,6 +1121,7 @@ function loadSessionIntoForm(sess){
   f.finger=sess.finger||null;
   f.sleep=sess.sleep||null; f.soreness=sess.soreness||null; f.warmedUp=!!sess.warmedUp;
   f.effort=EFFORT.find(e=>e.rpe===sess.rpe)?.key || null;
+  f.sendType=sess.sendType||null;
   if(sess.type==="climb") f.grades=[...(sess.grades||[])];
   if(sess.type==="hang"){
     const h=sess.hang||{};
@@ -1109,11 +1141,11 @@ function commitSave(){
   const f=ui.form;
   const s={id:ui.editingId||uid(),date:f.date,type:f.type,notes:f.notes.trim()};
   if(f.effort) s.rpe=EFFORT.find(e=>e.key===f.effort)?.rpe;
-  if(f.type!=="lift") s.finger=f.finger;
+  if(f.finger) s.finger=f.finger;
   if(f.sleep) s.sleep=f.sleep;
   if(f.soreness) s.soreness=f.soreness;
   if(f.warmedUp) s.warmedUp=true;
-  if(f.type==="climb") s.grades=[...f.grades];
+  if(f.type==="climb"){ s.grades=[...f.grades]; if(f.sendType) s.sendType=f.sendType; }
   if(f.type==="hang") s.hang={protocol:f.protocol,edge:f.edge,addedLb:f.addedLb,sets:f.sets,grip:f.grip};
   if(f.type==="lift"){
     const entries={};
@@ -1128,7 +1160,9 @@ function commitSave(){
     const idx=store.sessions.findIndex(x=>x.id===ui.editingId);
     if(idx>=0) store.sessions[idx]=s; else store.sessions.push(s);
   } else {
-    const plannedTarget=currentProgress().next?.targetRpe;
+    // Compare against the slot matching what was actually logged, not the "next" pointer —
+    // out-of-order logging is explicitly allowed, so those can diverge.
+    const plannedTarget=findMatchingSlot(f)?.targetRpe;
     if(plannedTarget!=null && s.rpe!=null && s.rpe-plannedTarget>=2){
       s.intensityFlag={target:plannedTarget, actual:s.rpe};
     }
@@ -1200,6 +1234,8 @@ function wire(){
   $main.querySelectorAll("[data-finger]").forEach(b=>b.onclick=()=>{ ui.form.finger=b.dataset.finger; render(); });
   $main.querySelectorAll("[data-effort]").forEach(b=>b.onclick=()=>{
     const v=b.dataset.effort; ui.form.effort=ui.form.effort===v?null:v; render(); });
+  $main.querySelectorAll("[data-sendtype]").forEach(b=>b.onclick=()=>{
+    const v=b.dataset.sendtype; ui.form.sendType=ui.form.sendType===v?null:v; render(); });
   $main.querySelectorAll("[data-sleep]").forEach(b=>b.onclick=()=>{
     const v=b.dataset.sleep; ui.form.sleep=ui.form.sleep===v?null:v; render(); });
   $main.querySelectorAll("[data-soreness]").forEach(b=>b.onclick=()=>{
