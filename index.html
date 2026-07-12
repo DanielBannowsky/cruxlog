@@ -216,7 +216,7 @@ const DEFAULTS = {
   sessions:[],
   liftTargets:{chin:0,ohp:null,squat:null,row:null,bench:null,dl:null},
   lastLiftDay:null, dailyChecks:{},
-  settings:{targetGrade:8, bodyweight:null},
+  settings:{targetGrade:8, bodyweight:null, comfortableGrade:null},
   benchmarks:[], // {id,date,metric:'hang'|'pull',value}
   progress:{phaseIdx:0, weekInPhase:1, slot:0}, // advances only when a session is logged — never tied to the calendar
 };
@@ -244,61 +244,138 @@ const LIFT_FULL = {
   power:    "Maintain your current pull-up and OHP loads — don't chase new numbers this phase, your climbing sessions are the priority now. Keep antagonist/wrist work in every week without fail; it's what's protecting your elbows through the higher pulling intensity elsewhere.",
   perform:  "Light maintenance only. Enough load to keep the signal alive, nothing that leaves you sore for a project day. Antagonist and wrist work still count — skipping them is how overuse injuries creep in during a send phase.",
 };
+/* {{grade}} is resolved at render time from your logged send history (see gradeRangeFor). */
 const WEEKLY_TEMPLATES = {
   recon:[
-    {type:"climb",label:"Climb — volume",  detail:"V1–V4, high volume, footwork focus", targetRpe:5,
-      full:"Stay in the V1–V4 range even though it feels easy — the constraint here is volume and footwork precision, not difficulty. Slow, quiet feet, full extension between moves. This rebuilds general work capacity before you load fingers hard again."},
-    {type:"hang", label:"Hangboard — repeaters", detail:"20mm edge, bodyweight, 7s/3s×6",protocol:"repeater", targetRpe:6,
-      full:"Bodyweight only, ~20mm edge. 7s hang / 3s rest × 6 reps, 3 min rest between sets, 2 sets per grip type (open + half-crimp). This is tendon reconditioning — moderate load, not max effort."},
-    {type:"climb",label:"Climb — volume",  detail:"V1–V4, high volume, footwork focus", targetRpe:5,
+    {type:"climb",label:"Climb — volume",  detail:"{{grade}}, high volume, footwork focus", targetRpe:5, gradeRole:"volume",
+      full:"Stay in the {{grade}} range even though it feels easy — the constraint here is volume and footwork precision, not difficulty. Slow, quiet feet, full extension between moves. This rebuilds general work capacity before you load fingers hard again."},
+    {type:"hang", label:"Hangboard — repeaters", detail:"20mm edge, {{load}}, 7s/3s×6",protocol:"repeater", targetRpe:6,
+      full:"~20mm edge, {{load}}. 7s hang / 3s rest × 6 reps, 3 min rest between sets, 2 sets per grip type (open + half-crimp). This is tendon reconditioning — moderate load, not max effort."},
+    {type:"climb",label:"Climb — volume",  detail:"{{grade}}, high volume, footwork focus", targetRpe:5, gradeRole:"volume",
       full:"Same as your other volume day — mileage and footwork, not difficulty. If it feels too easy, that's the point right now."},
-    {type:"hang", label:"Hangboard — repeaters", detail:"20mm edge, bodyweight, 7s/3s×6",protocol:"repeater", targetRpe:6,
+    {type:"hang", label:"Hangboard — repeaters", detail:"20mm edge, {{load}}, 7s/3s×6",protocol:"repeater", targetRpe:6,
       full:"Second repeater session of the week. Same protocol as before — this frequency is what rebuilds tendon tolerance without risking a flare-up."},
     {type:"lift", label:"Lift — light",  detail:"Full 5-lift session, light load", targetRpe:5,
       full:LIFT_FULL.recon},
-    {type:"climb",label:"Climb — ARC / easy", detail:"20–30 min continuous easy movement", targetRpe:4,
-      full:"20–30 minutes of continuous, easy movement — traversing or repeating easy problems back to back with minimal rest. You should never get pumped. This builds aerobic capacity in the forearms, which speeds recovery between hard sessions later."},
+    {type:"climb",label:"Climb — ARC / easy", detail:"{{grade}}, 20–30 min continuous easy movement", targetRpe:4, gradeRole:"arc",
+      full:"20–30 minutes of continuous, easy movement in the {{grade}} range — traversing or repeating easy problems back to back with minimal rest. You should never get pumped. This builds aerobic capacity in the forearms, which speeds recovery between hard sessions later."},
   ],
   strength:[
-    {type:"climb",label:"Climb — volume",  detail:"V1–V5 + footwork drills", targetRpe:6,
-      full:"V1–V5, moderate volume, with 2-3 problems where you deliberately drill footwork (quiet feet, no smearing scrambles). Warm up thoroughly before any harder attempts today."},
-    {type:"hang", label:"Hangboard — max hangs", detail:"20mm, near-max load, 10s/3min×5–6",protocol:"max", targetRpe:9,
-      full:"20mm edge, near-max effort. 10s hang / 3min rest × 5-6 sets. Add or remove weight so the last 2-3 seconds of the hang are genuinely hard — this is neural/max-strength work, not conditioning. Full 3-minute rests, no shortcuts."},
-    {type:"climb",label:"Climb — limit",   detail:"V5–V6, low volume, full rest between goes", targetRpe:9,
-      full:"V5–V6, low volume. Full rest (3-5 min) between attempts. Ugly movement is fine — you're exposing yourself to harder holds and steeper angles, not sending clean."},
-    {type:"hang", label:"Hangboard — repeaters", detail:"Repeaters + core",protocol:"repeater", targetRpe:6,
-      full:"Repeaters + core work. Keep this at a moderate edge/load — this session maintains tendon durability while your max-hang day does the heavy lifting."},
+    {type:"climb",label:"Climb — volume",  detail:"{{grade}} + footwork drills", targetRpe:6, gradeRole:"volume",
+      full:"{{grade}}, moderate volume, with 2-3 problems where you deliberately drill footwork (quiet feet, no smearing scrambles). Warm up thoroughly before any harder attempts today."},
+    {type:"hang", label:"Hangboard — max hangs", detail:"20mm, {{load}}, 10s/3min×5–6",protocol:"max", targetRpe:9,
+      full:"20mm edge, {{load}} — near-max effort. 10s hang / 3min rest × 5-6 sets. The last 2-3 seconds of the hang should be genuinely hard — this is neural/max-strength work, not conditioning. Full 3-minute rests, no shortcuts."},
+    {type:"climb",label:"Climb — limit",   detail:"{{grade}}, low volume, full rest between goes", targetRpe:9, gradeRole:"limit",
+      full:"{{grade}}, low volume. Full rest (3-5 min) between attempts. Ugly movement is fine — you're exposing yourself to harder holds and steeper angles, not sending clean."},
+    {type:"hang", label:"Hangboard — repeaters", detail:"Repeaters + core, {{load}}",protocol:"repeater", targetRpe:6,
+      full:"Repeaters + core work at {{load}}. Keep this moderate — this session maintains tendon durability while your max-hang day does the heavy lifting."},
     {type:"lift", label:"Lift — build",  detail:"Full 5-lift session, add weight", targetRpe:7,
       full:LIFT_FULL.strength},
-    {type:"climb",label:"Climb — volume / ARC", targetRpe:5,
-      full:"Volume or ARC — whichever your body wants. Use this as an active recovery / mileage day."},
+    {type:"climb",label:"Climb — volume / ARC", targetRpe:5, gradeRole:"volume",
+      full:"Volume or ARC — whichever your body wants, in the {{grade}} range. Use this as an active recovery / mileage day."},
   ],
   power:[
-    {type:"climb",label:"Climb — limit",   detail:"V6–V7, low volume, full rest", targetRpe:9,
-      full:"V6–V7, low volume, full rest between attempts. This is where the strength you built converts into harder single moves."},
-    {type:"hang", label:"Hangboard — maintenance", detail:"1×/week, maintain max-hang strength",protocol:"max", targetRpe:7,
-      full:"1x/week is enough here — you're not trying to add new max-hang strength, just hold onto what you built. Same near-max load, 3-4 sets is fine."},
-    {type:"climb",label:"Climb — power-endurance", detail:"4x4s / linked circuits, V4–V5", targetRpe:8,
-      full:"4x4s or linked boulder circuits at V4–V5, minimal rest between attempts/problems. This trains your ability to link hard moves without falling apart — think 'V6 crux, 4 times in a row.'"},
+    {type:"climb",label:"Climb — limit",   detail:"{{grade}}, low volume, full rest", targetRpe:9, gradeRole:"limit",
+      full:"{{grade}}, low volume, full rest between attempts. This is where the strength you built converts into harder single moves."},
+    {type:"hang", label:"Hangboard — maintenance", detail:"1×/week, {{load}}",protocol:"max", targetRpe:7,
+      full:"1x/week is enough here — you're not trying to add new max-hang strength, just hold onto what you built. {{load}}, 3-4 sets is fine."},
+    {type:"climb",label:"Climb — power-endurance", detail:"4x4s / linked circuits, {{grade}}", targetRpe:8, gradeRole:"powerEnd",
+      full:"4x4s or linked boulder circuits at {{grade}}, minimal rest between attempts/problems. This trains your ability to link hard moves without falling apart — think 'crux move, 4 times in a row.'"},
     {type:"lift", label:"Lift — maintain",  detail:"Full 5-lift session, hold current weight", targetRpe:6,
       full:LIFT_FULL.power},
-    {type:"climb",label:"Climb — volume / campus", targetRpe:5,
-      full:"Volume day, or light campus board work (basic ladders, matching moves only) if shoulders/elbows feel good."},
+    {type:"climb",label:"Climb — volume / campus", targetRpe:5, gradeRole:"volume",
+      full:"Volume day in the {{grade}} range, or light campus board work (basic ladders, matching moves only) if shoulders/elbows feel good."},
   ],
   perform:[
-    {type:"climb",label:"Climb — project",  detail:"V6–V8 attempts", targetRpe:9,
-      full:"V6–V8 attempts. Full rest between burns. This is what everything else has been building toward — treat sends as data, not judgment."},
-    {type:"hang", label:"Hangboard — maintenance", detail:"short max-hang session",protocol:"max", targetRpe:6,
-      full:"Short max-hang session, just enough to keep the signal alive. Don't grind — this phase is about projecting, not building new strength."},
-    {type:"climb",label:"Climb — project",  detail:"V6–V8 attempts", targetRpe:9,
+    {type:"climb",label:"Climb — project",  detail:"{{grade}} attempts", targetRpe:9, gradeRole:"project",
+      full:"{{grade}} attempts. Full rest between burns. This is what everything else has been building toward — treat sends as data, not judgment."},
+    {type:"hang", label:"Hangboard — maintenance", detail:"{{load}}, short session",protocol:"max", targetRpe:6,
+      full:"Short max-hang session at {{load}}, just enough to keep the signal alive. Don't grind — this phase is about projecting, not building new strength."},
+    {type:"climb",label:"Climb — project",  detail:"{{grade}} attempts", targetRpe:9, gradeRole:"project",
       full:"Second project session of the week — same approach, full rest between burns."},
     {type:"lift", label:"Lift — maintain",  detail:"Full 5-lift session, reduced volume", targetRpe:5,
       full:LIFT_FULL.perform},
-    {type:"climb",label:"Climb — volume / technique", targetRpe:5,
-      full:"Volume or technique-focused day — film yourself, look at footwork and hip positioning on your project's crux."},
+    {type:"climb",label:"Climb — volume / technique", targetRpe:5, gradeRole:"volume",
+      full:"Volume or technique-focused day in the {{grade}} range — film yourself, look at footwork and hip positioning on your project's crux."},
   ],
 };
 function slotsOf(phaseKey){ return WEEKLY_TEMPLATES[phaseKey]||WEEKLY_TEMPLATES.strength; }
+
+/* ---- dynamic grade prescription ----
+   "Comfortable grade" is the highest grade with 3+ logged sends — a real, evidence-based
+   floor rather than a guess, and it ratchets up automatically as you log more climbs.
+   Falls back to (targetGrade - 4) only when there's no send history yet to compute it. */
+function computeComfortableGrade(){
+  const counts={};
+  store.sessions.forEach(s=>{ if(s.type==="climb") (s.grades||[]).forEach(g=>{ counts[g]=(counts[g]||0)+1; }); });
+  let best=null;
+  for(let g=0; g<=16; g++){ if((counts[g]||0)>=3) best=g; }
+  return best;
+}
+function effectiveComfortableGrade(){
+  const stored=store.settings.comfortableGrade;
+  const computed=computeComfortableGrade();
+  if(computed!=null && (stored==null || computed>stored)) return computed;
+  return stored ?? Math.max(0,(store.settings.targetGrade??8)-4);
+}
+function gradeRangeFor(role){
+  const cg=effectiveComfortableGrade();
+  const target=store.settings.targetGrade??8;
+  switch(role){
+    case "volume": return [Math.max(0,cg-3), cg];
+    case "arc": return [Math.max(0,cg-4), Math.max(0,cg-2)];
+    case "limit": return [cg+1, cg+2];
+    case "powerEnd": return [cg, cg+1];
+    case "project": return [Math.max(cg+1,target-2), target];
+    default: return [Math.max(0,cg-2), cg];
+  }
+}
+function gradeRangeText(role){
+  const [lo,hi]=gradeRangeFor(role);
+  return lo>=hi ? `V${hi}` : `V${lo}–V${hi}`;
+}
+function resolveSlotText(slot){
+  const grade = slot.gradeRole ? gradeRangeText(slot.gradeRole) : "";
+  const load = slot.type==="hang" ? loadText(suggestHangLoad(slot.protocol)) : "";
+  const sub=(s)=> s ? s.replace(/\{\{grade\}\}/g,grade).replace(/\{\{load\}\}/g,load) : s;
+  return {...slot, detail:sub(slot.detail), full:sub(slot.full)};
+}
+
+/* ---- dynamic load prescription ----
+   Autoregulated progressive overload: hold/deload after a hard or painful session, add load
+   after an easy/solid one, halve suggested load outright during a deload week. */
+function loadText(lb){ return lb>0?`+${lb}lb`:lb<0?`${lb}lb`:"bodyweight"; }
+function suggestHangLoad(protocol){
+  const hist=[...store.sessions].filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol).sort((a,b)=>a.date<b.date?1:-1);
+  const cur=currentProgress();
+  if(!hist.length){
+    if(protocol==="max"){ const bench=latestBenchmark("hang"); return bench?Math.round(bench.value):0; }
+    return 0;
+  }
+  const last=hist[0];
+  const base=last.hang.addedLb??0;
+  if(cur.isDeload) return Math.round(base*0.5);
+  if(last.finger==="pain") return base;
+  if(last.rpe!=null && last.rpe<=7) return base+5;
+  return base;
+}
+const PROGRESSABLE_LIFTS = new Set(["pullup","ohp"]); // per plan doc — the other 3 are prehab/maintenance, not progressive-overload targets
+function suggestLiftWeight(key){
+  const hist=[...store.sessions].filter(s=>s.type==="lift"&&s.lift&&s.lift.entries&&s.lift.entries[key]&&s.lift.entries[key].length)
+    .sort((a,b)=>a.date<b.date?1:-1);
+  if(!hist.length) return null;
+  const rows=hist[0].lift.entries[key];
+  const topWeight=Math.max(...rows.map(r=>Number(r.weight)||0));
+  const cur=currentProgress();
+  if(cur.isDeload) return Math.round(topWeight*0.5);
+  if(!PROGRESSABLE_LIFTS.has(key) || cur.phase.key!=="strength") return topWeight;
+  const targetReps = key==="pullup" ? 3 : 5;
+  const topSet=rows.find(r=>Number(r.weight)===topWeight);
+  const repsHit = topSet && Number(topSet.reps)>=targetReps;
+  const painFlag = hist[0].finger==="pain";
+  if(painFlag) return topWeight;
+  return repsHit ? topWeight+5 : topWeight;
+}
 
 /* Benchmark-gated phase exit. Reconditioning and Performance are intentionally NOT gated:
    tendon adaptation runs on a timeline strength numbers can't shortcut (recon), and Performance's
@@ -509,7 +586,26 @@ const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:fal
 function blankForm(){
   return { type:"climb", date:todayStr(), grades:[], protocol:"repeater", edge:20, grip:"half",
     addedLb:0, sets:5, entries:blankLiftEntries(), finger:null, effort:null, notes:"",
-    sleep:null, soreness:null, warmedUp:false };
+    sleep:null, soreness:null, warmedUp:false, gradeRole:null };
+}
+/* Applies data-driven suggestions to a form — only safe to call once `store` is loaded. */
+function applySuggestions(f){
+  if(f.type==="hang") f.addedLb=suggestHangLoad(f.protocol);
+  if(f.type==="lift"){
+    LIFT_DAY.forEach(L=>{
+      const sug=suggestLiftWeight(L.key);
+      if(sug!=null) f.entries[L.key]=f.entries[L.key].map(r=>({...r,weight:String(sug)}));
+    });
+  }
+  if(f.type==="climb" && !f.gradeRole) f.gradeRole="volume";
+  return f;
+}
+function freshForm(type,protocol,gradeRole){
+  const f=blankForm();
+  if(type) f.type=type;
+  if(protocol) f.protocol=protocol;
+  if(gradeRole) f.gradeRole=gradeRole;
+  return applySuggestions(f);
 }
 function load(){
   try{ const raw=localStorage.getItem(KEY); store={...DEFAULTS,...(raw?JSON.parse(raw):{})}; }
@@ -549,7 +645,8 @@ function errBanner(){
 
 function renderPlan(){
   const cur=currentProgress();
-  const {phase,slots,slot,weekInPhase,absWeek,next,isDeload,gate,held,cap}=cur;
+  const {phase,slots,slot,weekInPhase,absWeek,isDeload,gate,held,cap}=cur;
+  const next=resolveSlotText(cur.next);
   const warnings=computeGuardrails(store);
   const pct=Math.min(100,Math.round((absWeek/TOTAL_WEEKS)*100));
   const complete = (store.progress||{}).completedCycle;
@@ -637,15 +734,20 @@ function renderLog(){
 
   let body="";
   if(f.type==="climb"){
+    const role=f.gradeRole||"volume";
+    const [lo,hi]=gradeRangeFor(role);
     body=`<div class="field"><div class="flabel">Sends by grade</div>
+      <div class="hint" style="margin-bottom:8px">Suggested for this session: <strong style="color:var(--accent)">${gradeRangeText(role)}</strong> (from your logged send history)</div>
       <div class="grades">${GRADE_COLORS.map((col,g)=>{
         const n=gc[g]||0;
+        const suggested = g>=lo && g<=hi;
         return `<button class="grade" data-grade="${g}"
-          style="border-color:${n?col:"var(--line)"};background:${n?col+"26":"var(--panel)"};color:${n?"var(--ink)":"var(--sub)"}">
+          style="border-color:${n?col:suggested?"var(--accent)":"var(--line)"};background:${n?col+"26":suggested?"rgba(111,179,201,.10)":"var(--panel)"};color:${n?"var(--ink)":"var(--sub)"}">
           V${g}${n?`<span class="badge" style="background:${col}">${n}</span>`:""}</button>`;
       }).join("")}</div>
       <div class="hint">Tap to add a send · long-press or right-click to remove one</div></div>`;
   } else if(f.type==="hang"){
+    const sugLb=suggestHangLoad(f.protocol);
     body=`<div class="field"><div class="flabel">Hangboard</div>
       <div class="seg" style="margin-bottom:10px" data-seg="protocol">
         <button data-val="repeater" class="${f.protocol==="repeater"?"on":""}">Repeaters</button>
@@ -653,6 +755,7 @@ function renderLog(){
       <div class="seg" style="margin-bottom:16px" data-seg="grip">
         <button data-val="half" class="${f.grip==="half"?"on":""}">Half-crimp</button>
         <button data-val="open" class="${f.grip==="open"?"on":""}">Open hand</button></div>
+      <div class="hint" style="margin-bottom:10px">Suggested load: <strong style="color:var(--accent)">${loadText(sugLb)}</strong> ${f.addedLb!==sugLb?`— you've changed this below`:`(auto-filled from your last ${f.protocol==="max"?"max hang":"repeater"} session)`}</div>
       <div class="stack">
         ${stepper("Edge","edge",f.edge,"mm")}
         ${stepper("Added load","addedLb",f.addedLb,"lb")}
@@ -728,10 +831,14 @@ function stepper(lab,key,val,suf){
     </div></div>`;
 }
 function liftBlock(L,rows){
+  const sug=suggestLiftWeight(L.key);
+  const sugText = sug==null ? "no data yet — log a set to start tracking"
+    : PROGRESSABLE_LIFTS.has(L.key) ? `${loadText(sug)}` : `${loadText(sug)} (maintenance, not a progression target)`;
   return `<div class="field"><div class="flabel" style="display:flex;justify-content:space-between;align-items:center">
       <span>${esc(L.name)}</span>
       <span style="color:var(--faint);text-transform:none;font-weight:600;letter-spacing:0">${L.sets}×${L.repTarget}${L.bw?" (+lb)":""}</span>
     </div>
+    <div class="hint" style="margin-bottom:8px">Suggested: <strong style="color:var(--accent)">${sugText}</strong></div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${rows.map((r,i)=>liftSetRow(L,i,r)).join("")}
     </div></div>`;
@@ -799,7 +906,15 @@ function renderProgress(){
           <button class="stepbtn" data-tstep="-1">${I.minus}</button>
           <span class="val">V${store.settings.targetGrade??8}</span>
           <button class="stepbtn" data-tstep="1">${I.plus}</button>
-        </div></div></div>
+        </div></div>
+      <div class="stepper" style="margin-top:10px"><span class="lab">Comfortable grade (baseline)</span>
+        <div class="ctl">
+          <button class="stepbtn" data-cstep="-1">${I.minus}</button>
+          <span class="val">V${effectiveComfortableGrade()}</span>
+          <button class="stepbtn" data-cstep="1">${I.plus}</button>
+        </div></div>
+      <div class="hint" style="margin-top:8px">Drives every session's recommended grade range and load. Auto-updates upward once you've logged 3+ sends at a higher grade — this stepper only sets the starting baseline or overrides it manually.</div>
+    </div>
     ${renderGradeChart()}
     ${renderBenchmarks()}
     <button class="btn2 ${ui.copied?"flash":""}" id="export">
@@ -911,7 +1026,25 @@ function renderBenchmarks(){
       <button class="btn2" id="logBench" style="margin:4px 0 0">Log today's numbers</button>
     </div>
     <div class="hint">Target ranges (% bodyweight): hang V3-4 ${BENCH_TARGETS.hang[0][1]} · V6 ${BENCH_TARGETS.hang[1][1]} · V8 ${BENCH_TARGETS.hang[2][1]}. Pull-up V3-4 ${BENCH_TARGETS.pull[0][1]} · V6 ${BENCH_TARGETS.pull[1][1]} · V8 ${BENCH_TARGETS.pull[2][1]}. Approximate, from Lattice/Bechtel norms — not a hard gate.</div>
+    ${renderBenchmarkList()}
   </div>`;
+}
+function renderBenchmarkList(){
+  const list=[...(store.benchmarks||[])].sort((a,b)=>a.date<b.date?1:-1).slice(0,10);
+  if(!list.length) return "";
+  const metricLabel={bodyweight:"Bodyweight",hang:"Max hang",pull:"Max pull-up"};
+  return `<div class="hint" style="margin:12px 0 6px">Recent entries · delete a mistyped one, then re-enter it above</div>
+    <div class="stack" style="gap:0;padding:4px 14px">
+      ${list.map((b,i)=>{
+        const border=i<list.length-1?"border-bottom:1px solid var(--line);":"";
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${border}">
+          <span style="flex:1;font-size:13px;color:var(--ink)">${metricLabel[b.metric]||b.metric}: ${b.value}lb <span style="color:var(--faint)">· ${prettyDate(b.date)}</span></span>
+          ${ui.confirmDel===b.id
+            ? `<button class="del confirm" data-delbench="${b.id}">${I.trash}Confirm?</button>`
+            : `<button class="del" data-delbench="${b.id}">${I.trash}Delete</button>`}
+        </div>`;
+      }).join("")}
+    </div>`;
 }
 function stat(lab,v,color){
   return `<div class="stat"><div class="lab">${lab}</div>
@@ -985,7 +1118,7 @@ function commitSave(){
   save();
   const keepType=f.type, keepDate=f.date;
   ui.editingId=null;
-  ui.form=blankForm(); ui.form.type=keepType; ui.form.date=keepDate;
+  ui.form=freshForm(keepType); ui.form.date=keepDate;
   ui.flash=true; render();
   setTimeout(()=>{ ui.flash=false; render(); },1400);
 }
@@ -994,7 +1127,7 @@ function wire(){
   // nav
   $nav.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{
     const t=b.dataset.tab;
-    if(t==="log" && ui.editingId){ ui.editingId=null; ui.form=blankForm(); }
+    if(t==="log" && ui.editingId){ ui.editingId=null; ui.form=freshForm(); }
     ui.tab=t; render();
   });
 
@@ -1002,8 +1135,8 @@ function wire(){
   $main.querySelectorAll("[data-seg]").forEach(seg=>{
     seg.querySelectorAll("button").forEach(b=>b.onclick=()=>{
       const key=seg.dataset.seg, val=b.dataset.val;
-      if(key==="type") ui.form.type=val;
-      else ui.form[key]=val;
+      if(key==="type"){ ui.form.type=val; if(!ui.editingId) applySuggestions(ui.form); }
+      else { ui.form[key]=val; if(key==="protocol" && !ui.editingId) ui.form.addedLb=suggestHangLoad(val); }
       render();
     });
   });
@@ -1053,13 +1186,23 @@ function wire(){
   const nt=$main.querySelector("#notes"); if(nt) nt.oninput=e=>{ ui.form.notes=e.target.value; };
   // save
   const sv=$main.querySelector("#save"); if(sv) sv.onclick=commitSave;
-  const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=blankForm(); render(); };
+  const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=freshForm(); render(); };
   // history delete — two-tap confirm (iOS standalone PWAs suppress window.confirm)
   $main.querySelectorAll("[data-del]").forEach(b=>b.onclick=(e)=>{
     e.stopPropagation();
     const id=b.dataset.del;
     if(ui.confirmDel===id){
       store.sessions=store.sessions.filter(x=>x.id!==id); ui.confirmDel=null; save(); render();
+    } else {
+      ui.confirmDel=id; render();
+      clearTimeout(ui._delTimer);
+      ui._delTimer=setTimeout(()=>{ if(ui.confirmDel===id){ ui.confirmDel=null; render(); } },4000);
+    }
+  });
+  $main.querySelectorAll("[data-delbench]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.delbench;
+    if(ui.confirmDel===id){
+      store.benchmarks=(store.benchmarks||[]).filter(x=>x.id!==id); ui.confirmDel=null; save(); render();
     } else {
       ui.confirmDel=id; render();
       clearTimeout(ui._delTimer);
@@ -1075,8 +1218,7 @@ function wire(){
   const lt=$main.querySelector("#logToday"); if(lt) lt.onclick=()=>{
     const next=currentProgress().next;
     ui.editingId=null;
-    ui.form=blankForm(); ui.form.type=next.type;
-    if(next.protocol) ui.form.protocol=next.protocol;
+    ui.form=freshForm(next.type, next.protocol, next.gradeRole);
     ui.tab="log"; render();
   };
   const ut=$main.querySelector("#upNextTap"); if(ut) ut.onclick=()=>{ ui.planDetailOpen=!ui.planDetailOpen; render(); };
@@ -1125,6 +1267,11 @@ function wire(){
   $main.querySelectorAll("[data-tstep]").forEach(b=>b.onclick=()=>{
     const dir=+b.dataset.tstep;
     store.settings.targetGrade=Math.max(4,Math.min(14,(store.settings.targetGrade??8)+dir));
+    save(); render();
+  });
+  $main.querySelectorAll("[data-cstep]").forEach(b=>b.onclick=()=>{
+    const dir=+b.dataset.cstep;
+    store.settings.comfortableGrade=Math.max(0,Math.min(16,effectiveComfortableGrade()+dir));
     save(); render();
   });
   // grade chart tap

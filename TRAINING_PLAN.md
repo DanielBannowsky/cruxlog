@@ -115,6 +115,23 @@ Other things worth logging per session so the app can flag stalls/overtraining:
 - Warm-up reminder before any hangboard max-hang session or any session logged at Hard/Max effort — a prompt to do 10-15 min of easy climbing plus a progressive load ramp (~50%→70%→90% of working intensity) before the first real attempt, since cold-tissue max effort is a well-documented pulley/tendon injury mechanism.
 - Pre-session readiness (sleep quality, general soreness) is logged alongside finger status. If the most recently logged readiness was poor sleep or general soreness *and* the next prescribed session is high-intensity (target RPE ≥8), the app surfaces a caution to swap in something lighter first.
 
+## Dynamic prescription — grade and load are computed, not hardcoded
+
+Earlier drafts of this plan wrote static grade ranges ("V0–V3") and load targets ("near-max effort") as fixed text. Two problems with that: static grades go stale the moment you improve (which is exactly what happened — this doc originally assumed a "consistent V3" starting point when the real level was a comfortable V4), and static load targets don't apply progressive overload at all. Both are now computed live from your logged data.
+
+**Comfortable grade** — the number everything else is calculated from — is the highest grade with 3+ logged sends, recalculated every time you log a climb. It only ratchets upward automatically; a manual override (Progress tab) sets the starting baseline before you have send history, or lets you correct it. Every session's grade range is then derived from it:
+- Volume day: comfortable grade and up to 3 below it
+- ARC/easy day: 2-4 grades below
+- Limit day: 1-2 grades *above* comfortable (a limit session should actually be at your limit)
+- Power-endurance: comfortable grade to 1 above
+- Project (Performance phase): target grade minus 2, up to target grade
+
+**Suggested hangboard load** is autoregulated from your own session history, not a fixed number: take your last logged session at that protocol (max hang or repeaters), and if you finished it at RPE ≤7 with no pain, add 5lb; if it was RPE 8+ or pain was flagged, hold; during a deload session-week, suggest half the normal load regardless. With no prior max-hang sessions, it seeds from your logged max-hang benchmark if you have one, otherwise starts at bodyweight.
+
+**Suggested lift load** works the same way, but only for weighted pull-up and overhead press — the two lifts this plan's Lift Day Protocol explicitly treats as progressive-overload targets. The other three (band pull-apart, wrist extensor curl, hanging leg raise) are prehab/maintenance by design, so the app suggests holding steady rather than pushing them, matching the doc's own guidance that they're "not the point of the session." Progression on the two target lifts only auto-suggests +5lb during Strength Base, and only when the previous top set actually hit the rep target — during Power/Performance the suggestion holds at the current weight even after a clean set, since those phases are explicitly maintenance for lifting.
+
+This is real autoregulation (Source: standard resistance-training autoregulation practice — adjusting load session-to-session from actual performance/RPE rather than a fixed pre-written progression scheme), but it's still a simple rule-based heuristic, not a substitute for a coach watching your actual bar speed or hang quality. Treat every suggested number as a starting point to adjust by feel, not gospel.
+
 ## Progression-accuracy features (implemented in the app's Plan/Progress tabs)
 
 - **RPE/intensity-mismatch flag.** Every session slot in the plan carries an intended target RPE (e.g. a volume day targets ~RPE 5-6, a max-hang or limit-bouldering day targets ~RPE 9). If you log a session at 2+ RPE points above what that slot called for, the app flags it as intensity creep — the mechanism by which "easy" days quietly become moderate, which is a well-known precursor to overreaching because it erodes the low-intensity recovery stimulus the hard days depend on.
