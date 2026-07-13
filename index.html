@@ -630,7 +630,7 @@ function setProgressUndo(){
 }
 
 function blankForm(){
-  return { type:"climb", date:todayStr(), grades:[], attempts:{}, attemptPick:null, protocol:"repeater", edge:20, grip:"half",
+  return { type:"climb", date:todayStr(), grades:[], attempts:{}, protocol:"repeater", edge:20, grip:"half",
     addedLb:0, sets:5, entries:blankLiftEntries(), finger:null, effort:null, notes:"",
     sleep:null, soreness:null, warmedUp:false, gradeRole:null };
 }
@@ -807,45 +807,21 @@ function renderLog(){
   if(f.type==="climb"){
     const role=f.gradeRole||"volume";
     const [lo,hi]=gradeRangeFor(role);
-    const pick = f.attemptPick ?? lo;
-    const loggedGrades=[...new Set([...Object.keys(gc),...Object.keys(att)].map(Number))]
-      .filter(g=>(gc[g]||0)>0 || (att[g]||0)>0)
-      .sort((a,b)=>b-a);
+    const maxG=11;
+    const gradeStepRow=(g,kind,val)=>{
+      const suggested = kind==="sends" && g>=lo && g<=hi;
+      return `<div class="stepper"><span class="lab" style="${suggested?"color:var(--accent);font-weight:700":""}">V${g}</span>
+        <div class="ctl">
+          <button class="stepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="-1">${I.minus}</button>
+          <span class="val">${val}</span>
+          <button class="stepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="1">${I.plus}</button>
+        </div></div>`;
+    };
     body=`<div class="field"><div class="flabel">Sends by grade</div>
       <div class="hint" style="margin-bottom:8px">Target: <strong style="color:var(--accent)">${gradeRangeText(role)}</strong></div>
-      <div class="grades">${GRADE_COLORS.map((col,g)=>{
-        const n=gc[g]||0;
-        const suggested = g>=lo && g<=hi;
-        return `<button class="grade" data-grade="${g}"
-          style="border-color:${n?col:suggested?"var(--accent)":"var(--line)"};background:${n?col+"26":suggested?"rgba(111,179,201,.10)":"var(--panel)"};color:${n?"var(--ink)":"var(--sub)"}">
-          V${g}${n?`<span class="badge">${n}</span>`:""}</button>`;
-      }).join("")}</div>
-      <div class="hint">Tap grade to add a send</div></div>
-      <div class="field"><div class="flabel">Attempts without a send</div>
-        <div class="stepper"><span class="lab">Grade</span>
-          <div class="ctl">
-            <button class="stepbtn" data-apick="-1">${I.minus}</button>
-            <span class="val">V${pick}</span>
-            <button class="stepbtn" data-apick="1">${I.plus}</button>
-          </div></div>
-        <button class="btn2" id="addAttempt" style="margin:10px 0 0">+1 attempt at V${pick}</button>
-      </div>
-      ${loggedGrades.length?`<div class="field"><div class="flabel">Logged this session</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          ${loggedGrades.map(g=>`<div class="liftrow" style="flex-direction:column;align-items:stretch;gap:8px">
-            <div class="name" style="width:auto">V${g}</div>
-            <div class="stepper"><span class="lab">Sends</span><div class="ctl">
-              <button class="stepbtn" data-gstep="sends" data-grade="${g}" data-dir="-1">${I.minus}</button>
-              <span class="val">${gc[g]||0}</span>
-              <button class="stepbtn" data-gstep="sends" data-grade="${g}" data-dir="1">${I.plus}</button>
-            </div></div>
-            <div class="stepper"><span class="lab">Attempts (no send)</span><div class="ctl">
-              <button class="stepbtn" data-gstep="attempts" data-grade="${g}" data-dir="-1">${I.minus}</button>
-              <span class="val">${att[g]||0}</span>
-              <button class="stepbtn" data-gstep="attempts" data-grade="${g}" data-dir="1">${I.plus}</button>
-            </div></div>
-          </div>`).join("")}
-        </div></div>`:""}`;
+      <div class="stack">${Array.from({length:maxG+1},(_,g)=>gradeStepRow(g,"sends",gc[g]||0)).join("")}</div></div>
+      <div class="field"><div class="flabel">Attempts by grade (no send)</div>
+      <div class="stack">${Array.from({length:maxG+1},(_,g)=>gradeStepRow(g,"attempts",att[g]||0)).join("")}</div></div>`;
   } else if(f.type==="hang"){
     const sugLb=suggestHangLoad(f.protocol);
     body=`<div class="field"><div class="flabel">Hangboard</div>
@@ -1318,26 +1294,8 @@ function wire(){
   });
   // date
   const d=$main.querySelector("#date"); if(d) d.onchange=e=>{ ui.form.date=e.target.value; render(); };
-  // grades
-  $main.querySelectorAll("[data-grade]").forEach(b=>{
-    const g=+b.dataset.grade;
-    b.onclick=()=>{ bumpGrade(g,1); render(); };
-    b.oncontextmenu=e=>{ e.preventDefault(); bumpGrade(g,-1); render(); };
-  });
-  // attempt-grade picker + quick-add (logs an attempt with no send, e.g. projecting)
-  $main.querySelectorAll("[data-apick]").forEach(b=>b.onclick=()=>{
-    const f=ui.form, [lo]=gradeRangeFor(f.gradeRole||"volume");
-    const cur=f.attemptPick ?? lo;
-    f.attemptPick=Math.max(0,Math.min(GRADE_COLORS.length-1,cur+(+b.dataset.apick)));
-    render();
-  });
-  const aa=$main.querySelector("#addAttempt"); if(aa) aa.onclick=()=>{
-    const f=ui.form, [lo]=gradeRangeFor(f.gradeRole||"volume");
-    const g=f.attemptPick ?? lo;
-    f.attempts=f.attempts||{}; f.attempts[g]=(f.attempts[g]||0)+1; render();
-  };
-  // per-grade sends/attempts correction: dedicated rows in the "Logged this session" list,
-  // not a tiny nested badge overlapping the neighboring grid cell (that made removal unreliable).
+  // per-grade sends/attempts steppers (left arrow decreases, right arrow increases,
+  // count shown in the middle) — one row per grade V0-V11, no tap-grid/list to keep in sync.
   $main.querySelectorAll("[data-gstep]").forEach(b=>b.onclick=()=>{
     const f=ui.form, g=+b.dataset.grade, dir=+b.dataset.dir, kind=b.dataset.gstep;
     if(kind==="sends") bumpGrade(g,dir);
