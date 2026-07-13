@@ -104,8 +104,11 @@
     display:flex; flex-direction:column; align-items:center; gap:5px;}
   .chip .dot{width:12px; height:12px; border-radius:6px;}
   .effortchip{flex:1; border-radius:10px; padding:10px 4px; border:1px solid var(--line);
-    background:var(--panel); color:var(--sub); font-weight:700; font-size:13px;}
+    background:var(--panel); color:var(--sub); font-weight:700; font-size:13px;
+    display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .effortchip .rpe{font-size:10px; font-weight:600; color:var(--faint);}
   .effortchip.on{border-color:var(--accent); background:rgba(111,179,201,.13); color:var(--ink);}
+  .effortchip.on .rpe{color:var(--accent);}
 
   textarea.notes{width:100%; resize:none; background:var(--panel); border:1px solid var(--line);
     border-radius:12px; color:var(--ink); font-size:15px; padding:12px 14px;}
@@ -201,7 +204,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v19";
+const APP_VERSION = "v20";
 const KEY = "climb-tracker-v1";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
    (clamped up to V14-V16 elsewhere) never index past the end of this array. */
@@ -924,8 +927,9 @@ function renderLog(){
     }).join("")}</div></div>`;
 
   const effort = `<div class="field"><div class="flabel">Effort (optional)</div>
+    <div class="hint" style="margin:0 0 8px">Sets the session's RPE — drives the intensity-mismatch and warm-up guardrails.</div>
     <div class="row3">${EFFORT.map(e=>
-      `<button class="effortchip ${f.effort===e.key?"on":""}" data-effort="${e.key}">${e.label}</button>`).join("")}</div></div>`;
+      `<button class="effortchip ${f.effort===e.key?"on":""}" data-effort="${e.key}">${e.label}<span class="rpe">RPE ${e.rpe}</span></button>`).join("")}</div></div>`;
 
   const readiness = `<div class="field"><div class="flabel">Readiness (optional)</div>
     <div class="row3" style="margin-bottom:8px">${Object.entries(SLEEP).map(([k,x])=>{
@@ -1104,7 +1108,7 @@ function renderHistory(){
           ? `<button class="del confirm" data-del="${s.id}">${I.trash}Confirm?</button>`
           : `<button class="del" data-del="${s.id}">${I.trash}Delete</button>`}
       </div>
-      <div class="hdetail">${esc(detailOf(s))}</div>
+      <div class="hdetail">${esc(detailOf(s))}${s.rpe!=null?`  <span style="color:var(--faint)">· RPE ${s.rpe}</span>`:""}</div>
       ${(s.sleep||s.soreness)?`<div class="hnotes">${[s.sleep?SLEEP[s.sleep].label+" sleep":null, s.soreness?SORENESS[s.soreness].label.toLowerCase():null].filter(Boolean).join(" · ")}</div>`:""}
       ${s.intensityFlag?`<div class="hnotes" style="color:var(--tweaky)">Logged harder than planned (RPE ${s.intensityFlag.actual} vs ~${s.intensityFlag.target})</div>`:""}
       ${s.notes?`<div class="hnotes">${esc(s.notes)}</div>`:""}
