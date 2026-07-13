@@ -105,7 +105,7 @@ Grip-strength-to-bodyweight ratios (added-weight max hang on 20mm edge, 10s) are
 Other things worth logging per session so the app can flag stalls/overtraining:
 - Session RPE (1-10)
 - Finger/elbow/shoulder soreness flag (0-3 scale) before each hangboard/limit session — auto-suggest a deload if soreness ≥2 for 2 sessions in a row
-- Grade sent/attempted
+- Grade sent, and attempts that didn't send (logged per grade, so volume-vs-success ratio is visible per session, not just total sends)
 - Days since last high-intensity finger session (enforce the 48h rule)
 
 ## Injury-risk guardrails (implemented in the app's Plan tab)

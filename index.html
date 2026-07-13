@@ -596,7 +596,9 @@ function gradeCounts(arr){ const c={}; (arr||[]).forEach(g=>c[g]=(c[g]||0)+1); r
 function detailOf(s){
   if(s.type==="climb"){
     const c=gradeCounts(s.grades);
-    return Object.keys(c).sort((a,b)=>b-a).map(g=>`V${g}×${c[g]}`).join("  ")||"—";
+    const sendsStr=Object.keys(c).sort((a,b)=>b-a).map(g=>`V${g}×${c[g]}`).join("  ")||"—";
+    const attTotal=Object.values(s.attempts||{}).reduce((a,b)=>a+b,0);
+    return sendsStr+(attTotal?`  · +${attTotal} attempt${attTotal===1?"":"s"}`:"");
   }
   if(s.type==="hang"){
     const h=s.hang||{}; const load=h.addedLb>0?`+${h.addedLb}lb`:h.addedLb<0?`${h.addedLb}lb`:"BW";
@@ -620,7 +622,7 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false, loadError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false };
 function setProgressUndo(){
   ui.progressUndo={progress:{...store.progress}};
   clearTimeout(ui._undoTimer);
@@ -628,7 +630,7 @@ function setProgressUndo(){
 }
 
 function blankForm(){
-  return { type:"climb", date:todayStr(), grades:[], protocol:"repeater", edge:20, grip:"half",
+  return { type:"climb", date:todayStr(), grades:[], attempts:{}, attemptPick:null, protocol:"repeater", edge:20, grip:"half",
     addedLb:0, sets:5, entries:blankLiftEntries(), finger:null, effort:null, notes:"",
     sleep:null, soreness:null, warmedUp:false, gradeRole:null };
 }
@@ -799,12 +801,16 @@ function renderPlan(){
 function renderLog(){
   const f=ui.form;
   const gc=gradeCounts(f.grades);
+  const att=f.attempts||{};
 
   let body="";
   if(f.type==="climb"){
     const role=f.gradeRole||"volume";
     const [lo,hi]=gradeRangeFor(role);
-    const loggedGrades=Object.keys(gc).map(Number).sort((a,b)=>b-a);
+    const pick = f.attemptPick ?? lo;
+    const loggedGrades=[...new Set([...Object.keys(gc),...Object.keys(att)].map(Number))]
+      .filter(g=>(gc[g]||0)>0 || (att[g]||0)>0)
+      .sort((a,b)=>b-a);
     body=`<div class="field"><div class="flabel">Sends by grade</div>
       <div class="hint" style="margin-bottom:8px">Target: <strong style="color:var(--accent)">${gradeRangeText(role)}</strong></div>
       <div class="grades">${GRADE_COLORS.map((col,g)=>{
@@ -815,11 +821,30 @@ function renderLog(){
           V${g}${n?`<span class="badge">${n}</span>`:""}</button>`;
       }).join("")}</div>
       <div class="hint">Tap grade to add a send</div></div>
+      <div class="field"><div class="flabel">Attempts without a send</div>
+        <div class="stepper"><span class="lab">Grade</span>
+          <div class="ctl">
+            <button class="stepbtn" data-apick="-1">${I.minus}</button>
+            <span class="val">V${pick}</span>
+            <button class="stepbtn" data-apick="1">${I.plus}</button>
+          </div></div>
+        <button class="btn2" id="addAttempt" style="margin:10px 0 0">+1 attempt at V${pick}</button>
+      </div>
       ${loggedGrades.length?`<div class="field"><div class="flabel">Logged this session</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          ${loggedGrades.map(g=>`<div class="liftrow"><div class="name">V${g}</div>
-            <span style="flex:1;color:var(--faint);font-size:13px">×${gc[g]}</span>
-            <button class="del" data-graderemove="${g}">${I.trash}Remove one</button></div>`).join("")}
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${loggedGrades.map(g=>`<div class="liftrow" style="flex-direction:column;align-items:stretch;gap:8px">
+            <div class="name" style="width:auto">V${g}</div>
+            <div class="stepper"><span class="lab">Sends</span><div class="ctl">
+              <button class="stepbtn" data-gstep="sends" data-grade="${g}" data-dir="-1">${I.minus}</button>
+              <span class="val">${gc[g]||0}</span>
+              <button class="stepbtn" data-gstep="sends" data-grade="${g}" data-dir="1">${I.plus}</button>
+            </div></div>
+            <div class="stepper"><span class="lab">Attempts (no send)</span><div class="ctl">
+              <button class="stepbtn" data-gstep="attempts" data-grade="${g}" data-dir="-1">${I.minus}</button>
+              <span class="val">${att[g]||0}</span>
+              <button class="stepbtn" data-gstep="attempts" data-grade="${g}" data-dir="1">${I.plus}</button>
+            </div></div>
+          </div>`).join("")}
         </div></div>`:""}`;
   } else if(f.type==="hang"){
     const sugLb=suggestHangLoad(f.protocol);
@@ -1015,7 +1040,19 @@ function renderProgress(){
         <button class="btn2" id="confirmImport" style="margin:0;flex:1;background:var(--good);color:#0E1418;border-color:var(--good)">Restore</button>
       </div></div>`:""}
     ${ui.importError?`<div style="background:#3A2622;color:#F0C6BE;border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:10px;">${esc(ui.importError)}</div>`:""}
-    <div class="note">Export: CSV to clipboard. Backup: full JSON to Files. Data is local-only.</div>`;
+    <button class="btn2" id="rawToggle">${ui.rawEditOpen?"Close raw data editor":"Edit raw data (JSON)"}</button>
+    ${ui.rawEditOpen?`<div class="field">
+      <div class="flabel">Raw data (JSON)</div>
+      <div class="hint" style="margin-bottom:8px">Full app data as JSON. Edit directly, then tap Apply. Invalid JSON is rejected — nothing saves until you apply.</div>
+      <textarea class="notes" id="rawJson" rows="14" spellcheck="false" autocapitalize="off" autocorrect="off"
+        style="font-family:ui-monospace,monospace;font-size:11px;line-height:1.4;white-space:pre">${esc(ui.rawEditText!=null?ui.rawEditText:JSON.stringify(store,null,2))}</textarea>
+      ${ui.rawEditError?`<div class="hint" style="color:var(--tweaky);margin-top:6px">${esc(ui.rawEditError)}</div>`:""}
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn2" id="rawCancel" style="margin:0;flex:1">Cancel</button>
+        <button class="btn2 ${ui.rawEditSaved?"flash":""}" id="rawApply" style="margin:0;flex:1;background:var(--good);color:#0E1418;border-color:var(--good)">${ui.rawEditSaved?I.check+(typeof ui.rawEditSaved==="string"?ui.rawEditSaved:"Applied"):"Apply"}</button>
+      </div>
+    </div>`:""}
+    <div class="note">Export: CSV to clipboard. Backup: full JSON to Files. Raw data editor: quick fixes without a file. Data is local-only.</div>`;
 }
 
 /* ---- small inline charts (no deps) ---- */
@@ -1118,7 +1155,8 @@ function renderBenchmarks(){
       <button class="btn2" id="logBench" style="margin:4px 0 0">Log today's numbers</button>
     </div>
     <div class="hint">Targets (%BW): hang V3-4 ${BENCH_TARGETS.hang[0][1]} · V6 ${BENCH_TARGETS.hang[1][1]} · V8 ${BENCH_TARGETS.hang[2][1]}. Pull-up V3-4 ${BENCH_TARGETS.pull[0][1]} · V6 ${BENCH_TARGETS.pull[1][1]} · V8 ${BENCH_TARGETS.pull[2][1]}.</div>
-    ${renderBenchmarkList()}
+    ${(store.benchmarks||[]).length?`<button class="btn2" id="benchHistToggle" style="margin:10px 0 0">${ui.benchHistoryOpen?"Hide history":"Show history"}</button>`:""}
+    ${ui.benchHistoryOpen?renderBenchmarkList():""}
   </div>`;
 }
 function renderBenchmarkList(){
@@ -1185,7 +1223,7 @@ function stat(lab,v,color){
 /* ============================ interactions ============================ */
 function valid(){
   const f=ui.form;
-  if(f.type==="climb") return f.grades.length>0 && !!f.finger;
+  if(f.type==="climb") return (f.grades.length>0 || Object.values(f.attempts||{}).some(v=>v>0)) && !!f.finger;
   if(f.type==="hang") return !!f.finger;
   if(f.type==="lift") return LIFT_DAY.some(L=>(f.entries[L.key]||[]).some(r=>(r.weight??"")!==""));
   return false;
@@ -1202,7 +1240,7 @@ function loadSessionIntoForm(sess){
   f.finger=sess.finger||null;
   f.sleep=sess.sleep||null; f.soreness=sess.soreness||null; f.warmedUp=!!sess.warmedUp;
   f.effort=EFFORT.find(e=>e.rpe===sess.rpe)?.key || null;
-  if(sess.type==="climb") f.grades=[...(sess.grades||[])];
+  if(sess.type==="climb"){ f.grades=[...(sess.grades||[])]; f.attempts={...(sess.attempts||{})}; }
   if(sess.type==="hang"){
     const h=sess.hang||{};
     f.protocol=h.protocol||"repeater"; f.edge=h.edge??20; f.addedLb=h.addedLb??0; f.sets=h.sets??5; f.grip=h.grip||"half";
@@ -1225,7 +1263,11 @@ function commitSave(){
   if(f.sleep) s.sleep=f.sleep;
   if(f.soreness) s.soreness=f.soreness;
   if(f.warmedUp) s.warmedUp=true;
-  if(f.type==="climb") s.grades=[...f.grades];
+  if(f.type==="climb"){
+    s.grades=[...f.grades];
+    const att=Object.fromEntries(Object.entries(f.attempts||{}).filter(([,v])=>v>0));
+    if(Object.keys(att).length) s.attempts=att;
+  }
   if(f.type==="hang") s.hang={protocol:f.protocol,edge:f.edge,addedLb:f.addedLb,sets:f.sets,grip:f.grip};
   if(f.type==="lift"){
     const entries={};
@@ -1282,10 +1324,25 @@ function wire(){
     b.onclick=()=>{ bumpGrade(g,1); render(); };
     b.oncontextmenu=e=>{ e.preventDefault(); bumpGrade(g,-1); render(); };
   });
-  // remove-a-send: its own row in a dedicated list below the grid, not a tiny nested
-  // badge overlapping the neighboring grid cell (that overlap made removal unreliable).
-  $main.querySelectorAll("[data-graderemove]").forEach(b=>b.onclick=()=>{
-    bumpGrade(+b.dataset.graderemove,-1); render();
+  // attempt-grade picker + quick-add (logs an attempt with no send, e.g. projecting)
+  $main.querySelectorAll("[data-apick]").forEach(b=>b.onclick=()=>{
+    const f=ui.form, [lo]=gradeRangeFor(f.gradeRole||"volume");
+    const cur=f.attemptPick ?? lo;
+    f.attemptPick=Math.max(0,Math.min(GRADE_COLORS.length-1,cur+(+b.dataset.apick)));
+    render();
+  });
+  const aa=$main.querySelector("#addAttempt"); if(aa) aa.onclick=()=>{
+    const f=ui.form, [lo]=gradeRangeFor(f.gradeRole||"volume");
+    const g=f.attemptPick ?? lo;
+    f.attempts=f.attempts||{}; f.attempts[g]=(f.attempts[g]||0)+1; render();
+  };
+  // per-grade sends/attempts correction: dedicated rows in the "Logged this session" list,
+  // not a tiny nested badge overlapping the neighboring grid cell (that made removal unreliable).
+  $main.querySelectorAll("[data-gstep]").forEach(b=>b.onclick=()=>{
+    const f=ui.form, g=+b.dataset.grade, dir=+b.dataset.dir, kind=b.dataset.gstep;
+    if(kind==="sends") bumpGrade(g,dir);
+    else { f.attempts=f.attempts||{}; f.attempts[g]=Math.max(0,(f.attempts[g]||0)+dir); }
+    render();
   });
   // steppers
   $main.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
@@ -1397,6 +1454,31 @@ function wire(){
     store=deepMerge(DEFAULTS, ui.pendingImport.data); ui.pendingImport=null; save(); render();
   };
   const xi=$main.querySelector("#cancelImport"); if(xi) xi.onclick=()=>{ ui.pendingImport=null; render(); };
+  // raw data editor — in-place JSON edit as an alternative to file export/import
+  const rt=$main.querySelector("#rawToggle"); if(rt) rt.onclick=()=>{
+    if(!ui.rawEditOpen){ ui.rawEditText=JSON.stringify(store,null,2); ui.rawEditError=null; ui.rawEditSaved=false; }
+    ui.rawEditOpen=!ui.rawEditOpen; render();
+  };
+  const rj=$main.querySelector("#rawJson"); if(rj) rj.oninput=e=>{ ui.rawEditText=e.target.value; };
+  const rc=$main.querySelector("#rawCancel"); if(rc) rc.onclick=()=>{
+    ui.rawEditOpen=false; ui.rawEditText=null; ui.rawEditError=null; render();
+  };
+  const ra=$main.querySelector("#rawApply"); if(ra) ra.onclick=()=>{
+    let parsed;
+    try{ parsed=JSON.parse(ui.rawEditText); }
+    catch(err){ ui.rawEditError="Invalid JSON — "+(err.message||"couldn't parse."); render(); return; }
+    if(!parsed||typeof parsed!=="object"||Array.isArray(parsed)){ ui.rawEditError="Top level must be a JSON object."; render(); return; }
+    if(parsed.sessions!=null && !Array.isArray(parsed.sessions)){ ui.rawEditError="'sessions' must be an array."; render(); return; }
+    const rawSessions=parsed.sessions||[];
+    const cleanSessions=rawSessions.filter(validSession);
+    const skipped=rawSessions.length-cleanSessions.length;
+    store=deepMerge(DEFAULTS,{...parsed,sessions:cleanSessions});
+    save();
+    ui.rawEditError=null; ui.rawEditText=null;
+    ui.rawEditSaved=skipped>0?`Applied (${skipped} invalid session${skipped===1?"":"s"} skipped)`:"Applied";
+    render();
+    setTimeout(()=>{ ui.rawEditSaved=false; render(); },2200);
+  };
   // benchmarks
   const bw=$main.querySelector("#bw"); if(bw) bw.onchange=e=>{
     const v=e.target.value===""?null:Number(e.target.value);
@@ -1404,6 +1486,7 @@ function wire(){
     if(v!=null){ store.benchmarks=store.benchmarks||[]; store.benchmarks.push({id:uid(),date:todayStr(),metric:"bodyweight",value:v}); }
     save(); render();
   };
+  const bht=$main.querySelector("#benchHistToggle"); if(bht) bht.onclick=()=>{ ui.benchHistoryOpen=!ui.benchHistoryOpen; render(); };
   const lb=$main.querySelector("#logBench"); if(lb) lb.onclick=()=>{
     const hv=$main.querySelector("#benchHang").value, pv=$main.querySelector("#benchPull").value;
     store.benchmarks=store.benchmarks||[];
@@ -1463,6 +1546,7 @@ function validSession(s){
   if(!s||typeof s!=="object") return false;
   if(!s.id||!s.date||!["climb","hang","lift"].includes(s.type)) return false;
   if(s.type==="climb" && !Array.isArray(s.grades)) return false;
+  if(s.attempts!=null && (typeof s.attempts!=="object" || Array.isArray(s.attempts))) return false;
   if(s.type==="hang" && (!s.hang||typeof s.hang!=="object")) return false;
   if(s.type==="lift" && (!s.lift||typeof s.lift!=="object")) return false;
   return true;
