@@ -514,6 +514,25 @@ function computeGuardrails(store){
     }
   }
 
+  // volume ACWR (tries = sends + failed attempts) — session-count ACWR above only catches
+  // frequency spikes; this catches within-session load spikes (e.g. same session count but
+  // triple the tries), which matter more for finger/tendon loading than session count alone.
+  const acuteTries=sessions.filter(s=>dayDiff(s.date,"1970-01-01")>nowEpoch-7).reduce((a,s)=>a+climbTries(s),0);
+  const chronicTries=sessions.filter(s=>dayDiff(s.date,"1970-01-01")>nowEpoch-28).reduce((a,s)=>a+climbTries(s),0);
+  const chronicTriesWeekly=chronicTries/4;
+  if(chronicTriesWeekly>=10){
+    const triesAcwr=acuteTries/chronicTriesWeekly;
+    if(triesAcwr>1.5){
+      out.push({level:"warn",text:`Climbing volume spike: ${acuteTries} tries/7d (sends+attempts) vs ${chronicTriesWeekly.toFixed(0)}/wk avg. Threshold: 1.5×. Reduce volume.`});
+    }
+  }
+
+  // single-session hard-attempt cap — quality-over-quantity for limit bouldering: past
+  // ~10-15 true-limit tries in one session, technique breaks down under fatigue faster than
+  // strength is gained, and tendon loading keeps accruing without matching benefit.
+  const hardCap=hardAttemptsCheck();
+  if(hardCap) out.push({level:"info",text:hardCap});
+
   const cur=currentProgress();
   if(cur.isDeload){
     out.push({level:"info",text:"Deload week: halve hangboard/lift volume."});
@@ -547,6 +566,24 @@ function computeGuardrails(store){
 
   return out;
 }
+function climbTries(s){
+  if(s.type!=="climb") return 0;
+  const sends=(s.grades||[]).length;
+  const attempts=Object.values(s.attempts||{}).reduce((a,b)=>a+b,0);
+  return sends+attempts;
+}
+function hardAttemptsCheck(){
+  const lastClimb=[...store.sessions].filter(s=>s.type==="climb").sort((a,b)=>a.date<b.date?1:-1)[0];
+  if(!lastClimb) return null;
+  const cg=effectiveComfortableGrade();
+  const hardSends=(lastClimb.grades||[]).filter(g=>g>cg).length;
+  const hardAttempts=Object.entries(lastClimb.attempts||{}).filter(([g])=>Number(g)>cg).reduce((a,[,v])=>a+v,0);
+  const hard=hardSends+hardAttempts;
+  if(hard>12){
+    return `${hard} hard tries (>V${cg}) in last session. Cap ~10-15 quality attempts/session at limit grades — beyond that, technique degrades under fatigue faster than strength is gained.`;
+  }
+  return null;
+}
 function plateauCheck(metric,label){
   const vals=benchTrend(metric);
   if(vals.length<3) return null;
@@ -562,10 +599,20 @@ function stalledGradeCheck(){
   let hardestEver=-1; store.sessions.forEach(s=>(s.grades||[]).forEach(g=>{ if(g>hardestEver) hardestEver=g; }));
   const last3=climbs.slice(0,3);
   const noPR=last3.every(s=>Math.max(...s.grades)<hardestEver);
-  if(noPR){
-    return `Grade stalled: V${hardestEver}, 3 sessions. Cycle back to Strength Base (6-8 session-weeks).`;
+  if(!noPR) return null;
+  // Distinguish "not even trying the next grade" (a logging/engagement gap, not a physiological
+  // plateau) from "grinding at it with real volume and still not sending" (the actual signal
+  // the plan doc's cycle-back rule is meant to catch) — attempts data is what makes this possible.
+  const projectGrade=hardestEver+1;
+  const triesAtProject=last3.reduce((sum,s)=>{
+    const sends=(s.grades||[]).filter(g=>g===projectGrade).length;
+    const attempts=(s.attempts||{})[projectGrade]||0;
+    return sum+sends+attempts;
+  },0);
+  if(triesAtProject===0){
+    return `Not attempting V${projectGrade} (next grade up): 0 logged tries in last 3 sessions. Log attempts even without a send — otherwise "stalled" can't be distinguished from "not tried".`;
   }
-  return null;
+  return `Grade stalled: V${hardestEver} ceiling, ${triesAtProject} tries at V${projectGrade} across 3 sessions, 0 sends. Cycle back to Strength Base (6-8 session-weeks).`;
 }
 
 /* icons (inline svg) */
