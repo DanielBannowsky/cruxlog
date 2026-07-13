@@ -36,6 +36,7 @@
   .ladder{display:flex; gap:2px;}
   .ladder span{width:4px; height:18px; border-radius:2px;}
   .wordmark{font-weight:800; letter-spacing:1.5px; font-size:15px;}
+  .wordmark .ver{font-weight:600; letter-spacing:0; font-size:10px; color:var(--faint); margin-left:6px; vertical-align:middle;}
   .goal{margin-left:auto; color:var(--faint); font-size:11px;}
 
   main{padding:18px 16px 130px;}
@@ -157,6 +158,23 @@
   .empty .t{color:var(--ink); font-size:17px; font-weight:700; margin-bottom:8px;}
   .empty .b{font-size:14px; line-height:1.5;}
 
+  /* info tab: rendered training plan markdown */
+  .mdwrap{padding:4px 2px 24px; line-height:1.55; font-size:14px; color:var(--sub);}
+  .mdwrap .mdh1{font-size:20px; color:var(--ink); font-weight:800; margin:4px 0 14px;}
+  .mdwrap .mdh2{font-size:16px; color:var(--ink); font-weight:800; margin:24px 0 8px; padding-top:16px; border-top:1px solid var(--line);}
+  .mdwrap .mdh2:first-child{border-top:none; padding-top:0; margin-top:0;}
+  .mdwrap .mdh3{font-size:14px; color:var(--accent); font-weight:800; margin:16px 0 6px;}
+  .mdwrap .mdh4{font-size:13px; color:var(--ink); font-weight:700; margin:12px 0 4px;}
+  .mdwrap p{margin:0 0 10px;}
+  .mdwrap strong{color:var(--ink);}
+  .mdwrap em{font-style:italic;}
+  .mdwrap ul, .mdwrap ol{margin:0 0 10px; padding-left:20px;}
+  .mdwrap li{margin:0 0 6px;}
+  .mdwrap li ul, .mdwrap li ol{margin:6px 0 0;}
+  .mdtable{width:100%; border-collapse:collapse; margin:0 0 14px; font-size:12.5px;}
+  .mdtable th, .mdtable td{border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top;}
+  .mdtable th{background:var(--panel2); color:var(--ink); font-weight:700;}
+
   /* nav */
   nav{position:fixed; bottom:0; left:50%; transform:translateX(-50%);
     width:100%; max-width:480px; background:var(--panel); border-top:1px solid var(--line);
@@ -170,7 +188,7 @@
 <body>
 <header>
   <div class="ladder" id="ladder"></div>
-  <span class="wordmark">CRUXLOG</span>
+  <span class="wordmark">CRUXLOG<span class="ver" id="verTag"></span></span>
   <span class="goal mono" id="goalTag">&rarr; V8</span>
 </header>
 <main id="main"></main>
@@ -181,6 +199,9 @@
 <script>
 "use strict";
 /* ============================ constants ============================ */
+// Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
+// obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
+const APP_VERSION = "v19";
 const KEY = "climb-tracker-v1";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
    (clamped up to V14-V16 elsewhere) never index past the end of this array. */
@@ -631,6 +652,7 @@ const I = {
   up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>',
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>',
   chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="m9 18 6-6-6-6"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
 };
 
 /* ============================ helpers ============================ */
@@ -736,16 +758,18 @@ document.getElementById("ladder").innerHTML =
 
 function render(){
   document.getElementById("goalTag").textContent = `→ V${store.settings.targetGrade??8}`;
+  document.getElementById("verTag").textContent = APP_VERSION;
   if(ui.tab==="plan") $main.innerHTML=renderPlan();
   else if(ui.tab==="log") $main.innerHTML=renderLog();
   else if(ui.tab==="history") $main.innerHTML=renderHistory();
+  else if(ui.tab==="info") $main.innerHTML=renderInfo();
   else $main.innerHTML=renderProgress();
   renderNav();
   wire();
 }
 
 function renderNav(){
-  const tabs=[["plan","Plan",I.cal],["log","Log",I.plus],["history","History",I.hist],["progress","Progress",I.bars]];
+  const tabs=[["plan","Plan",I.cal],["log","Log",I.plus],["history","History",I.hist],["progress","Progress",I.bars],["info","Info",I.info]];
   $nav.innerHTML=tabs.map(([k,l,ic])=>
     `<button data-tab="${k}" class="${ui.tab===k?"on":""}">${ic}${l}</button>`).join("");
 }
@@ -986,6 +1010,79 @@ function liftSetRow(L,i,r){
     <input class="numin" style="width:56px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps"
       value="${r.reps??""}" placeholder="reps">
     <button class="amrap ${r.amrap?"on":""}" data-amrap-lift="${L.key}" data-amrap-idx="${i}" title="AMRAP">+</button></div>`;
+}
+
+/* ---- Info tab: renders TRAINING_PLAN.md in-app, fetched once and cached in memory.
+   Single source of truth stays the .md file — no separate copy to keep in sync by hand. */
+let planMdCache=null, planMdError=null, planMdLoading=false;
+function loadPlanMd(){
+  if(planMdCache!=null || planMdLoading) return;
+  planMdLoading=true;
+  fetch("./TRAINING_PLAN.md").then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
+    .then(txt=>{ planMdCache=txt; planMdLoading=false; if(ui.tab==="info") render(); })
+    .catch(err=>{ planMdError=err.message||"couldn't load"; planMdLoading=false; if(ui.tab==="info") render(); });
+}
+function mdInline(s){
+  s=esc(s);
+  s=s.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+  s=s.replace(/\*(.+?)\*/g,"<em>$1</em>");
+  return s;
+}
+function mdBuildList(items){
+  const baseIndent=items[0].indent, ordered=items[0].ordered, tag=ordered?"ol":"ul";
+  let html=`<${tag}>`, i=0;
+  while(i<items.length){
+    let liHtml=mdInline(items[i].text); i++;
+    if(i<items.length && items[i].indent>baseIndent){
+      const nested=[]; while(i<items.length && items[i].indent>baseIndent){ nested.push(items[i]); i++; }
+      liHtml+=mdBuildList(nested);
+    }
+    html+=`<li>${liHtml}</li>`;
+  }
+  return html+`</${tag}>`;
+}
+function mdToHtml(md){
+  const lines=md.replace(/\r\n/g,"\n").split("\n");
+  const n=lines.length;
+  let html="", i=0;
+  const listRe=/^(\s*)([-*]|\d+\.)\s+(.*)$/;
+  while(i<n){
+    const line=lines[i];
+    if(!line.trim()){ i++; continue; }
+    if(/^\|/.test(line)){
+      const rows=[]; while(i<n && /^\|/.test(lines[i])){ rows.push(lines[i]); i++; }
+      const cells=r=>r.trim().replace(/^\||\|$/g,"").split("|").map(c=>c.trim());
+      const header=cells(rows[0]), body=rows.slice(2);
+      html+=`<table class="mdtable"><thead><tr>${header.map(h=>`<th>${mdInline(h)}</th>`).join("")}</tr></thead><tbody>`;
+      body.forEach(r=>{ html+=`<tr>${cells(r).map(c=>`<td>${mdInline(c)}</td>`).join("")}</tr>`; });
+      html+="</tbody></table>";
+      continue;
+    }
+    const hm=/^(#{1,4})\s+(.*)$/.exec(line);
+    if(hm){ const lvl=hm[1].length; html+=`<h${lvl} class="mdh${lvl}">${mdInline(hm[2])}</h${lvl}>`; i++; continue; }
+    if(listRe.test(line)){
+      const items=[];
+      while(i<n && listRe.test(lines[i])){
+        const mm=listRe.exec(lines[i]);
+        items.push({indent:mm[1].length, ordered:/\d+\./.test(mm[2]), text:mm[3]});
+        i++;
+      }
+      html+=mdBuildList(items);
+      continue;
+    }
+    const buf=[line]; i++;
+    while(i<n && lines[i].trim() && !/^\|/.test(lines[i]) && !/^#{1,4}\s/.test(lines[i]) && !listRe.test(lines[i])){
+      buf.push(lines[i]); i++;
+    }
+    html+=`<p>${mdInline(buf.join(" "))}</p>`;
+  }
+  return html;
+}
+function renderInfo(){
+  if(planMdError) return `<div class="empty"><div class="icon">${I.info}</div>
+    <div class="t">Couldn't load</div><div class="b">${esc(planMdError)}. Check connection and try again.</div></div>`;
+  if(planMdCache==null){ loadPlanMd(); return `<div class="empty"><div class="icon">${I.info}</div><div class="t">Loading…</div></div>`; }
+  return `<div class="mdwrap">${mdToHtml(planMdCache)}</div>`;
 }
 
 function renderHistory(){
