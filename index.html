@@ -58,15 +58,17 @@
   .flabel{color:var(--faint); font-size:12px; font-weight:700; letter-spacing:1px;
     text-transform:uppercase; margin-bottom:10px;}
 
-  /* grade grid */
-  .grades{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
-  .grade{position:relative; border-radius:12px; border:1.5px solid var(--line);
-    background:var(--panel); color:var(--sub); padding:12px 0;
-    font-family:ui-monospace,monospace; font-weight:800; font-size:16px;}
-  .grade .badge{position:absolute; top:-9px; right:-9px; min-width:26px; height:26px;
-    border-radius:13px; color:#0E1418; font-size:12px; font-weight:800; z-index:1;
-    display:flex; align-items:center; justify-content:center; padding:0 6px;
-    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;}
+  /* grade cards (compact sends/attempts steppers) */
+  .gcards{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .gcard{border-radius:12px; border:1.5px solid var(--line); background:var(--panel);
+    padding:8px 4px 10px; display:flex; flex-direction:column; align-items:center; gap:6px;}
+  .gcard .glab{font-family:ui-monospace,monospace; font-weight:800; font-size:13px; color:var(--ink);}
+  .gcard .gctl{display:flex; align-items:center; gap:4px;}
+  .gcard .gval{font-family:ui-monospace,monospace; font-size:15px; font-weight:700;
+    min-width:20px; text-align:center; color:var(--ink);}
+  .gstepbtn{width:30px; height:30px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--ink); display:flex; align-items:center; justify-content:center;}
+  .gstepbtn svg{width:13px; height:13px;}
   .hint{color:var(--faint); font-size:11px; margin-top:8px;}
 
   /* stepper block */
@@ -808,20 +810,21 @@ function renderLog(){
     const role=f.gradeRole||"volume";
     const [lo,hi]=gradeRangeFor(role);
     const maxG=11;
-    const gradeStepRow=(g,kind,val)=>{
+    const gradeCard=(g,kind,val)=>{
       const suggested = kind==="sends" && g>=lo && g<=hi;
-      return `<div class="stepper"><span class="lab" style="${suggested?"color:var(--accent);font-weight:700":""}">V${g}</span>
-        <div class="ctl">
-          <button class="stepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="-1">${I.minus}</button>
-          <span class="val">${val}</span>
-          <button class="stepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="1">${I.plus}</button>
+      return `<div class="gcard" style="${suggested?"border-color:var(--accent);background:rgba(111,179,201,.10)":""}">
+        <span class="glab">V${g}</span>
+        <div class="gctl">
+          <button class="gstepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="-1">${I.minus}</button>
+          <span class="gval">${val}</span>
+          <button class="gstepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="1">${I.plus}</button>
         </div></div>`;
     };
     body=`<div class="field"><div class="flabel">Sends by grade</div>
       <div class="hint" style="margin-bottom:8px">Target: <strong style="color:var(--accent)">${gradeRangeText(role)}</strong></div>
-      <div class="stack">${Array.from({length:maxG+1},(_,g)=>gradeStepRow(g,"sends",gc[g]||0)).join("")}</div></div>
+      <div class="gcards">${Array.from({length:maxG+1},(_,g)=>gradeCard(g,"sends",gc[g]||0)).join("")}</div></div>
       <div class="field"><div class="flabel">Attempts by grade (no send)</div>
-      <div class="stack">${Array.from({length:maxG+1},(_,g)=>gradeStepRow(g,"attempts",att[g]||0)).join("")}</div></div>`;
+      <div class="gcards">${Array.from({length:maxG+1},(_,g)=>gradeCard(g,"attempts",att[g]||0)).join("")}</div></div>`;
   } else if(f.type==="hang"){
     const sugLb=suggestHangLoad(f.protocol);
     body=`<div class="field"><div class="flabel">Hangboard</div>
