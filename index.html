@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v40";
+const APP_VERSION = "v41";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -361,13 +361,21 @@ function slotsOf(phaseKey){ return WEEKLY_TEMPLATES[phaseKey]||WEEKLY_TEMPLATES.
    them, since those are what that feature is for previewing. */
 function realSessions(){ return store.sessions.filter(s=>!s.seed); }
 
+/* Per-grade send tally shared by computeComfortableGrade() and the grade pyramid chart
+   (gradePyramid(), below) — one source of truth for "how many sends at each grade" so the
+   comfortable-grade rule is always reading the same data the pyramid visualizes, rather than
+   two near-identical scans that could quietly drift apart. */
+function sendCountsByGrade(sessions){
+  const counts={};
+  sessions.forEach(s=>{ if(s.type==="climb") (s.grades||[]).forEach(g=>{ counts[g]=(counts[g]||0)+1; }); });
+  return counts;
+}
 /* ---- dynamic grade prescription ----
    "Comfortable grade" is the highest grade with 3+ logged sends — a real, evidence-based
    floor rather than a guess, and it ratchets up automatically as you log more climbs.
    Falls back to (targetGrade - 4) only when there's no send history yet to compute it. */
 function computeComfortableGrade(){
-  const counts={};
-  realSessions().forEach(s=>{ if(s.type==="climb") (s.grades||[]).forEach(g=>{ counts[g]=(counts[g]||0)+1; }); });
+  const counts=sendCountsByGrade(realSessions());
   let best=null;
   for(let g=0; g<=16; g++){ if((counts[g]||0)>=3) best=g; }
   return best;
@@ -800,12 +808,13 @@ function sendsAttemptsSeries(n=10){
    you have the volume to justify pushing the next grade; a spike with no base underneath
    usually means under-logged volume rather than genuine readiness. */
 function gradePyramid(){
-  const c={}, extra={};
   // Deliberately includes {seed:true} sample sessions, same as heatmapData() — previewing
   // this chart with "Load sample data" is the point, unlike the real-stat computations
-  // realSessions() protects elsewhere.
+  // realSessions() protects elsewhere. Uses the same sendCountsByGrade() tally
+  // computeComfortableGrade() reads from, just over the seed-inclusive session list.
+  const c=sendCountsByGrade(store.sessions);
+  const extra={};
   store.sessions.filter(s=>s.type==="climb").forEach(s=>{
-    (s.grades||[]).forEach(g=>{ c[g]=(c[g]||0)+1; });
     Object.entries(s.attempts||{}).forEach(([g,v])=>{
       const sendsAtG=(s.grades||[]).filter(x=>String(x)===g).length;
       extra[g]=(extra[g]||0)+Math.max(0,v-sendsAtG);
