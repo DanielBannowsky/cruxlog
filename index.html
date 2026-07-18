@@ -208,7 +208,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v28";
+const APP_VERSION = "v29";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -1144,7 +1144,7 @@ function renderLog(){
   } else {
     const done=f.mobilityDone||[];
     body=`<div class="field"><div class="flabel">10-min daily mobility</div>
-      <div class="hint" style="margin-bottom:10px">Dynamic mobility, not static holds — better before climbing or hangboard, and gentler on tissue right before a hard effort (Behm &amp; Chaouachi, 2011).</div>
+      <div class="hint" style="margin-bottom:10px">General everyday mobility — morning or night, any day. Dynamic movement, not static holds (Behm &amp; Chaouachi, 2011).</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         ${MOBILITY_ROUTINE.map(m=>{
           const on=done.includes(m.key);

@@ -84,7 +84,7 @@ Antagonist and wrist work (rows 2-4) stay in at a steady, non-maxing effort in e
 
 ## Daily Mobility (10 minutes, every day)
 
-Unlike the Lift/Hang/Climb rotation, mobility isn't part of the session-week slot cycle — it's a daily, low-intensity add-on that runs in parallel with whatever phase you're in, and logging it does not advance the plan pointer. Six short drills, dynamic rather than static:
+Unlike the Lift/Hang/Climb rotation, mobility isn't part of the session-week slot cycle — it's a general everyday routine, done morning or night, that runs in parallel with whatever phase you're in and isn't tied to a training session at all. Logging it does not advance the plan pointer. Six short drills, dynamic rather than static:
 
 | Drill | Time | Why |
 |---|---|---|
@@ -95,7 +95,7 @@ Unlike the Lift/Hang/Climb rotation, mobility isn't part of the session-week slo
 | Ankle dorsiflexion rocks | 60s | Precise smearing and edging depend on ankle range as much as footwork skill. |
 | Neck / upper-trap release | 60s | Offsets the tension from looking up at holds and shouldering load during hangs and lifts. |
 
-**Dynamic, not static, and timing matters.** This routine is deliberately built from controlled, moving mobility work rather than long static holds, because static stretching held right before a high-intensity effort has a well-documented acute effect of transiently reducing maximal strength and power output (Behm, D.G. & Chaouachi, A. (2011), *A review of the acute effects of static and dynamic stretching on performance*, European Journal of Applied Physiology). Practical implication: do this routine before a session as a warm-up primer, or on its own on a rest day — save any longer static-stretch holds you want to add for *after* training or on a separate day, not immediately before max hangs or limit bouldering.
+**Why dynamic, not static.** This routine is built from controlled, moving mobility work (joint circles, rocking, active range-of-motion) rather than long static holds, because dynamic mobility work is safe and effective any time of day — morning, night, rest day, doesn't matter — while static stretching held right before a high-intensity effort has a well-documented acute effect of transiently reducing maximal strength and power output (Behm, D.G. & Chaouachi, A. (2011), *A review of the acute effects of static and dynamic stretching on performance*, European Journal of Applied Physiology). Practical implication: this routine is safe to do whenever fits your day; if you want to add longer static-stretch holds on top of it, keep those away from the hours right before a max-hang or limit-bouldering session specifically, not this routine.
 
 ## Session order per phase
 
