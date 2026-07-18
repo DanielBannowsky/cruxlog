@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v38";
+const APP_VERSION = "v39";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -271,7 +271,7 @@ const DEFAULTS = {
   sessions:[],
   liftTargets:{chin:0,ohp:null,squat:null,row:null,bench:null,dl:null},
   lastLiftDay:null, dailyChecks:{},
-  settings:{targetGrade:8, bodyweight:null, comfortableGrade:null},
+  settings:{targetGrade:8, bodyweight:null, comfortableGrade:null, bodyweightSeeded:false},
   benchmarks:[], // {id,date,metric:'hang'|'pull',value}
   progress:{phaseIdx:0, weekInPhase:1, slot:0}, // advances only when a session is logged — never tied to the calendar
 };
@@ -1530,7 +1530,7 @@ function renderProgress(){
     <div class="hint" style="margin:16px 0 8px">Testing</div>
     <button class="btn2" id="loadTestData">Load sample data</button>
     ${store.sessions.some(x=>x.seed)?`<button class="btn2 danger" id="clearTestData">Remove sample data</button>`:""}
-    <div class="note">Adds ~4 weeks of synthetic sessions (climb/hang/lift/mobility) to check charts and the heatmap — doesn't touch your plan progress. Tagged so it's removable in one tap, but it is included in exports/backups until you remove it.</div>`;
+    <div class="note">Adds ~4 weeks of synthetic sessions (climb/hang/lift/mobility) plus hang/pull benchmarks — and a placeholder bodyweight if you haven't set one — to check every Progress chart, the grade pyramid, and the heatmap. Doesn't touch your plan progress. Tagged so it's removable in one tap; the placeholder bodyweight is cleared too if you didn't already have one set. Included in exports/backups until you remove it.</div>`;
 
   return errBanner()+`
     <div class="cur"><div class="lab">Current</div>
@@ -1711,8 +1711,11 @@ const BENCH_TARGETS = {
   hang:[["V3–V4","0–10%"],["V6","20–30%"],["V8","40–50%+"]],
   pull:[["V3–V4","10–20%"],["V6","30–40%"],["V8","50%+"]],
 };
+/* Same {seed:true} isolation as realSessions() — sample-data benchmark entries must stay out
+   of real strength gates/estimates too. */
+function realBenchmarks(){ return (store.benchmarks||[]).filter(b=>!b.seed); }
 function latestBenchmark(metric){
-  const list=(store.benchmarks||[]).filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?1:-1);
+  const list=realBenchmarks().filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?1:-1);
   return list[0]||null;
 }
 /* Three (grade, %BW) anchors per metric, reusing the exact numbers already used elsewhere —
@@ -1732,7 +1735,7 @@ function benchmarkGradeEstimate(pct,anchors){
   return null;
 }
 function benchTrend(metric){
-  return [...(store.benchmarks||[])].filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?-1:1).map(b=>b.value);
+  return realBenchmarks().filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?-1:1).map(b=>b.value);
 }
 /* Visualizes the same %BW-vs-grade norms renderBenchmarks() shows as static text, as two
    gauges you can actually read your position on, with your comfortable grade marked alongside
@@ -2171,10 +2174,14 @@ function wire(){
   // sample/test data
   const ltd=$main.querySelector("#loadTestData"); if(ltd) ltd.onclick=()=>{
     store.sessions=[...store.sessions, ...generateTestSessions()];
+    store.benchmarks=[...(store.benchmarks||[]), ...generateTestBenchmarks()];
+    if(store.settings.bodyweight==null){ store.settings.bodyweight=165; store.settings.bodyweightSeeded=true; }
     save(); render();
   };
   const ctd=$main.querySelector("#clearTestData"); if(ctd) ctd.onclick=()=>{
     store.sessions=store.sessions.filter(x=>!x.seed);
+    store.benchmarks=(store.benchmarks||[]).filter(x=>!x.seed);
+    if(store.settings.bodyweightSeeded){ store.settings.bodyweight=null; store.settings.bodyweightSeeded=false; }
     save(); render();
   };
   // progress buttons
@@ -2214,6 +2221,7 @@ function wire(){
   const bw=$main.querySelector("#bw"); if(bw) bw.onchange=e=>{
     const v=e.target.value===""?null:Number(e.target.value);
     store.settings.bodyweight=v;
+    store.settings.bodyweightSeeded=false;
     if(v!=null){ store.benchmarks=store.benchmarks||[]; store.benchmarks.push({id:uid(),date:todayStr(),metric:"bodyweight",value:v}); }
     save(); render();
   };
@@ -2252,34 +2260,62 @@ function updateSaveBtn(){
 }
 
 /* ---- sample/test data (visual QA only) ----
-   Generates a few weeks of synthetic sessions across all 4 types, including same-day
-   climb+mobility and standalone mobility days, so charts/heatmap/guardrails can be
-   sanity-checked without hand-logging dozens of entries. Every generated session is
-   tagged {seed:true} so it can be bulk-removed later without touching real data, and
-   is pushed directly to store.sessions (not through commitSave), so it never advances
-   the plan's phase/slot pointer. */
+   Generates a few weeks of synthetic sessions/benchmarks across every chart the app draws,
+   including same-day climb+mobility and standalone mobility days (heatmap diagonal split),
+   a deliberately pyramid-shaped grade spread (wide base narrowing toward a v7/v8 ceiling
+   that's attempted but not sent — grade pyramid chart), and hang/pull benchmarks tracking
+   toward roughly the same ceiling (strength-vs-grade chart), so every chart on the Progress
+   tab has something to show without hand-logging dozens of entries. Every generated record
+   is tagged {seed:true} so it's bulk-removable without touching real data (realSessions()/
+   realBenchmarks() keep it out of real stats/guardrails/suggestions in the meantime), and
+   sessions are pushed directly to store.sessions (not through commitSave), so none of it
+   advances the plan's phase/slot pointer. */
 function generateTestSessions(){
   const out=[];
-  let grade=3;
+  // Grade pyramid: dense sends low, narrowing to attempts-only at the ceiling.
+  const climbPlan=[
+    {day:2,  grades:[2,3,3], attempts:{}},
+    {day:5,  grades:[3,4,4], attempts:{5:2}},
+    {day:8,  grades:[4,4,5], attempts:{5:1,6:2}},
+    {day:11, grades:[3,5], attempts:{6:3}},
+    {day:14, grades:[4,5,5], attempts:{6:2}},
+    {day:17, grades:[5,6], attempts:{6:1,7:2}},
+    {day:20, grades:[4,5,6], attempts:{7:3}},
+    {day:23, grades:[6], attempts:{7:4,8:1}},
+    {day:26, grades:[5,6], attempts:{7:2}},
+    {day:29, grades:[6], attempts:{7:3,8:2}},
+  ];
+  climbPlan.forEach((c,i)=>{
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(c.day), type:"climb",
+      grades:[...c.grades], attempts:{...c.attempts}, rpe:i%3===0?6:i%3===1?7:8,
+      finger:i===7?"tweaky":"good", notes:""});
+  });
   for(let w=0; w<4; w++){
     const base=w*7;
-    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+1), type:"climb",
-      grades:[grade,grade,Math.max(0,grade-1)], attempts:{[grade+1]:3}, rpe:6, finger:"good", notes:""});
     out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+3), type:"hang",
-      hang:{protocol:w%2===0?"repeater":"max", edge:20, addedLb:w*5, sets:5, grip:"half"},
+      hang:{protocol:w%2===0?"repeater":"max", edge:20, addedLb:20+w*5, sets:5, grip:"half"},
       rpe:w%2===0?6:9, finger:"good", notes:""});
     out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+4), type:"lift",
-      lift:{entries:Object.fromEntries(LIFT_DAY.map(L=>[L.key,[{weight:String(10+w*5),reps:L.repTarget.split("-")[0]}]]))},
+      lift:{entries:Object.fromEntries(LIFT_DAY.map(L=>[L.key,[{weight:String(30+w*5),reps:L.repTarget.split("-")[0]}]]))},
       rpe:6, finger:"good", notes:""});
-    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+5), type:"climb",
-      grades:[grade+1], attempts:{[grade+2]:2}, rpe:8, finger:w===2?"tweaky":"good", notes:""});
-    // same day as the first climb this week — exercises the heatmap's diagonal split
-    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+1), type:"mobility",
+    // same day as a climb session — exercises the heatmap's diagonal split
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+2), type:"mobility",
       mobility:{done:["wrist","shoulder"]}, notes:""});
     // a standalone mobility-only day
     out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+6), type:"mobility",
       mobility:{done:["tspine","hip","ankle","neck"]}, notes:""});
-    grade++;
+  }
+  return out;
+}
+/* Bodyweight ~165lb (only set if you don't already have one — see #loadTestData) with hang/pull
+   benchmarks progressing over the same window as the climb data, landing both strength gauges
+   in roughly the same V5-V6 range as the grade pyramid's base for a coherent demo. */
+function generateTestBenchmarks(){
+  const out=[];
+  for(let w=0; w<4; w++){
+    const base=w*7;
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+3), metric:"hang", value:20+w*5});
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+4), metric:"pull", value:35+w*5});
   }
   return out;
 }
