@@ -107,6 +107,12 @@
   .chip.on{border-color:var(--accent); background:rgba(111,179,201,.13); color:var(--ink);}
   .chip.on .sub{color:var(--accent);}
 
+  .timerbtn{display:flex; align-items:center; gap:5px; border-radius:20px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--sub); padding:6px 10px; font-family:ui-monospace,monospace;
+    font-size:12px; font-weight:700; flex-shrink:0;}
+  .timerbtn svg{width:11px; height:11px;}
+  .timerbtn.on{border-color:var(--mobility); color:var(--mobility); background:rgba(139,127,209,.13);}
+
   textarea.notes{width:100%; resize:none; background:var(--panel); border:1px solid var(--line);
     border-radius:12px; color:var(--ink); font-size:15px; padding:12px 14px;}
 
@@ -208,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v29";
+const APP_VERSION = "v30";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -806,6 +812,8 @@ const I = {
   hang:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11.5V9a2 2 0 0 0-2-2 2 2 0 0 0-2 2v1.4"/><path d="M14 10V8a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 9.9V9a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5"/><path d="M6 14a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-4a8 8 0 0 1-7-4"/></svg>',
   lift:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>',
   mobility:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2"/><path d="M12 7.5v5"/><path d="m6.5 10.5 5.5 2 5.5-2"/><path d="M12 12.5 8 21"/><path d="M12 12.5l4 8.5"/></svg>',
+  play:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
   hist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>',
   bars:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
@@ -864,7 +872,38 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false, loadError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,trends:false,benchmarks:false,recovery:false,strength:false,data:false}, celebrate:null };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,trends:false,benchmarks:false,recovery:false,strength:false,data:false}, celebrate:null, timer:null };
+let mobilityTimerHandle=null;
+function clearMobilityTimerHandle(){ if(mobilityTimerHandle){ clearInterval(mobilityTimerHandle); mobilityTimerHandle=null; } }
+function resetMobilityTimer(){ clearMobilityTimerHandle(); ui.timer=null; }
+/* Per-drill countdown for the mobility routine. Ticks via setInterval + render(), same pattern
+   as the flash/celebrate setTimeout calls elsewhere — one active timer at a time, since the
+   routine is meant to be done sequentially. Auto-marks the drill done when it hits zero. */
+function toggleMobilityTimer(key,dur){
+  const cur=ui.timer;
+  if(cur && cur.key===key && cur.running){
+    clearMobilityTimerHandle();
+    ui.timer={...cur, running:false};
+    render();
+    return;
+  }
+  ui.timer = (cur && cur.key===key && cur.remaining>0) ? {...cur, running:true} : {key, remaining:dur, running:true};
+  clearMobilityTimerHandle();
+  mobilityTimerHandle=setInterval(()=>{
+    if(!ui.timer || ui.timer.key!==key || !ui.timer.running){ clearMobilityTimerHandle(); return; }
+    const remaining=ui.timer.remaining-1;
+    if(remaining<=0){
+      ui.timer={key, remaining:0, running:false};
+      clearMobilityTimerHandle();
+      const done=ui.form.mobilityDone||[];
+      if(!done.includes(key)) ui.form.mobilityDone=[...done,key];
+    } else {
+      ui.timer={key, remaining, running:true};
+    }
+    render();
+  },1000);
+  render();
+}
 function setProgressUndo(){
   ui.progressUndo={progress:{...store.progress}};
   clearTimeout(ui._undoTimer);
@@ -1144,18 +1183,25 @@ function renderLog(){
   } else {
     const done=f.mobilityDone||[];
     body=`<div class="field"><div class="flabel">10-min daily mobility</div>
-      <div class="hint" style="margin-bottom:10px">General everyday mobility — morning or night, any day. Dynamic movement, not static holds (Behm &amp; Chaouachi, 2011).</div>
+      <div class="hint" style="margin-bottom:10px">General everyday mobility — morning or night, any day. Dynamic movement, not static holds (Behm &amp; Chaouachi, 2011). Tap the timer to run each drill.</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         ${MOBILITY_ROUTINE.map(m=>{
           const on=done.includes(m.key);
-          return `<button class="chip" data-mobility="${m.key}" style="flex-direction:row;justify-content:space-between;align-items:center;text-align:left;padding:12px 14px;
+          const totalSec=parseInt(m.dur,10);
+          const t=ui.timer, isActive=t&&t.key===m.key;
+          const running=isActive&&t.running;
+          const remaining=isActive?t.remaining:totalSec;
+          return `<div class="chip" data-mobility="${m.key}" style="cursor:pointer;flex-direction:row;justify-content:space-between;align-items:center;text-align:left;padding:12px 14px;
             border-color:${on?"var(--mobility)":"var(--line)"};background:${on?"rgba(139,127,209,.13)":"var(--panel)"}">
             <span style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
               <span style="color:var(--ink);font-size:14px;font-weight:700">${esc(m.name)}</span>
-              <span class="sub" style="color:var(--faint)">${m.dur}</span>
+              <span class="sub" style="color:${isActive?"var(--mobility)":"var(--faint)"}">${isActive?`${remaining}s left`:m.dur}</span>
             </span>
-            <span style="color:var(--mobility)">${on?I.check:""}</span>
-          </button>`;
+            <span style="display:flex;align-items:center;gap:8px">
+              <button class="timerbtn${running?" on":""}" data-mobtimer="${m.key}" data-dur="${totalSec}">${running?I.pause:I.play}<span>${remaining}s</span></button>
+              <span style="color:var(--mobility);width:16px;display:flex;justify-content:center">${on?I.check:""}</span>
+            </span>
+          </div>`;
         }).join("")}
       </div></div>`;
   }
@@ -1550,8 +1596,22 @@ function renderHeatmap(){
     if(!d.types.length){
       return `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="var(--panel2)" ${strokeAttr}>${title}</rect>`;
     }
-    // Multiple session types on the same day split the cell into equal vertical strips —
-    // one glance still shows every type trained that day, not just the first one logged.
+    // Mobility is a daily habit separate from the climb/hang/lift rotation, so it gets its own
+    // fixed diagonal half of the cell — the other half fills with whatever training (if any)
+    // happened that day, instead of both competing for a vertical strip.
+    if(d.types.includes("mobility")){
+      const others=d.types.filter(t=>t!=="mobility");
+      const otherColor = others.length ? (TYPE_COLORS[others[0]]||"var(--panel2)") : "var(--panel2)";
+      const x2=(x+cell).toFixed(1), y2=(y+cell).toFixed(1);
+      return `<g ${strokeAttr}>
+        <rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="none" ${strokeAttr}/>
+        <polygon points="${x},${y} ${x},${y2} ${x2},${y2}" fill="${TYPE_COLORS.mobility}"/>
+        <polygon points="${x},${y} ${x2},${y} ${x2},${y2}" fill="${otherColor}"/>
+        ${title}
+      </g>`;
+    }
+    // Multiple non-mobility session types on the same day split the cell into equal vertical
+    // strips — one glance still shows every type trained that day, not just the first logged.
     const stripW=cell/d.types.length;
     const strips=d.types.map((t,ti)=>
       `<rect x="${(x+ti*stripW).toFixed(1)}" y="${y}" width="${stripW.toFixed(1)}" height="${cell}"
@@ -1812,7 +1872,7 @@ function commitSave(){
   const keepType=f.type, keepDate=f.date;
   ui.editingId=null;
   ui.form=freshForm(keepType); ui.form.date=keepDate;
-  ui.gradeExpanded=false; ui.logMoreOpen=false;
+  ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
   ui.flash=true; render();
   setTimeout(()=>{ ui.flash=false; ui.celebrate=null; render(); },ui.celebrate?2800:2000);
 }
@@ -1823,6 +1883,7 @@ function wire(){
     const t=b.dataset.tab;
     if(t==="log" && ui.editingId){ ui.editingId=null; ui.form=freshForm(); ui.gradeExpanded=false; ui.logMoreOpen=false; }
     if(t!=="plan") ui.progressUndo=null;
+    if(t!=="log") resetMobilityTimer();
     ui.tab=t; render();
   });
 
@@ -1830,7 +1891,7 @@ function wire(){
   $main.querySelectorAll("[data-seg]").forEach(seg=>{
     seg.querySelectorAll("button").forEach(b=>b.onclick=()=>{
       const key=seg.dataset.seg, val=b.dataset.val;
-      if(key==="type"){ ui.form.type=val; ui.gradeExpanded=false; if(!ui.editingId) applySuggestions(ui.form); }
+      if(key==="type"){ ui.form.type=val; ui.gradeExpanded=false; resetMobilityTimer(); if(!ui.editingId) applySuggestions(ui.form); }
       else {
         ui.form[key]=val;
         if((key==="protocol"||key==="grip") && !ui.editingId) ui.form.addedLb=suggestHangLoad(ui.form.protocol,ui.form.grip);
@@ -1873,6 +1934,10 @@ function wire(){
     f.mobilityDone = done.includes(k) ? done.filter(x=>x!==k) : [...done,k];
     render();
   });
+  $main.querySelectorAll("[data-mobtimer]").forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation();
+    toggleMobilityTimer(b.dataset.mobtimer, +b.dataset.dur);
+  });
   // finger / effort
   $main.querySelectorAll("[data-finger]").forEach(b=>b.onclick=()=>{ ui.form.finger=b.dataset.finger; render(); });
   $main.querySelectorAll("[data-effort]").forEach(b=>b.onclick=()=>{
@@ -1894,7 +1959,7 @@ function wire(){
   };
   // save
   const sv=$main.querySelector("#save"); if(sv) sv.onclick=commitSave;
-  const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=freshForm(); ui.gradeExpanded=false; ui.logMoreOpen=false; render(); };
+  const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=freshForm(); ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); render(); };
   // history delete — two-tap confirm (iOS standalone PWAs suppress window.confirm)
   $main.querySelectorAll("[data-del]").forEach(b=>b.onclick=(e)=>{
     e.stopPropagation();
@@ -1920,7 +1985,7 @@ function wire(){
   // history card tap -> edit
   $main.querySelectorAll("[data-edit]").forEach(card=>card.onclick=()=>{
     const s=store.sessions.find(x=>x.id===card.dataset.edit); if(!s)return;
-    ui.editingId=s.id; ui.form=loadSessionIntoForm(s); ui.tab="log"; ui.gradeExpanded=false; ui.logMoreOpen=false; render();
+    ui.editingId=s.id; ui.form=loadSessionIntoForm(s); ui.tab="log"; ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); render();
   });
   // plan tab
   const lt=$main.querySelector("#logToday"); if(lt) lt.onclick=()=>{
@@ -1933,7 +1998,7 @@ function wire(){
   const lm=$main.querySelector("#logMobility"); if(lm) lm.onclick=()=>{
     ui.editingId=null;
     ui.form=freshForm("mobility");
-    ui.gradeExpanded=false; ui.logMoreOpen=false;
+    ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
     ui.tab="log"; render();
   };
   const pst=$main.querySelector("#planSlotsToggle"); if(pst) pst.onclick=()=>{ ui.planSlotsOpen=!ui.planSlotsOpen; render(); };
