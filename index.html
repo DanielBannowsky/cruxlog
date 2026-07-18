@@ -15,7 +15,7 @@
   :root{
     --bg:#14181C; --panel:#1B2127; --panel2:#232B33; --line:#2E3842;
     --ink:#EAF0F2; --sub:#8B9AA6; --faint:#5C6B76; --accent:#6FB3C9;
-    --good:#3FB68B; --tweaky:#E0A63C; --pain:#D9503F;
+    --good:#3FB68B; --tweaky:#E0A63C; --pain:#D9503F; --mobility:#8B7FD1;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; background:var(--bg); color:var(--ink);
@@ -208,7 +208,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v27";
+const APP_VERSION = "v28";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -248,6 +248,16 @@ const SORENESS = {
   tired:{label:"Tired",dot:"var(--tweaky)"},
   sore:{label:"Sore",dot:"var(--pain)"},
 };
+/* Daily mobility routine — dynamic, not static (see TRAINING_PLAN.md "Daily Mobility"), runs
+   parallel to the phase session-week cycle rather than consuming a plan slot. */
+const MOBILITY_ROUTINE = [
+  {key:"wrist",    name:"Wrist & finger extensor mobility", short:"Wrist",    dur:"90s"},
+  {key:"shoulder", name:"Shoulder CARs (controlled rotations)", short:"Shoulder", dur:"90s"},
+  {key:"tspine",   name:"Thoracic spine rotation (open book)", short:"T-spine",  dur:"90s"},
+  {key:"hip",      name:"Hip 90/90 or hip-flexor stretch",  short:"Hips",     dur:"90s"},
+  {key:"ankle",    name:"Ankle dorsiflexion rocks",         short:"Ankles",   dur:"60s"},
+  {key:"neck",     name:"Neck / upper-trap release",        short:"Neck",     dur:"60s"},
+];
 const MILESTONES = [10,25,50,75,100,150,200]; // session-count round numbers worth a one-time celebration
 const SCHEMA_VERSION = 1; // bump + add a migration step in load() when the stored shape changes
 const DEFAULTS = {
@@ -741,7 +751,7 @@ function trainingStreak(){
   }
   return {current, best:Math.max(best,current)};
 }
-const TYPE_COLORS={climb:"var(--accent)",hang:"var(--tweaky)",lift:"var(--good)"};
+const TYPE_COLORS={climb:"var(--accent)",hang:"var(--tweaky)",lift:"var(--good)",mobility:"var(--mobility)"};
 function heatmapData(weeks=18){
   const days=weeks*7;
   const typesByDay={}, hardClimbDays={};
@@ -795,6 +805,7 @@ const I = {
   climb:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>',
   hang:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11.5V9a2 2 0 0 0-2-2 2 2 0 0 0-2 2v1.4"/><path d="M14 10V8a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 9.9V9a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5"/><path d="M6 14a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-4a8 8 0 0 1-7-4"/></svg>',
   lift:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>',
+  mobility:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2"/><path d="M12 7.5v5"/><path d="m6.5 10.5 5.5 2 5.5-2"/><path d="M12 12.5 8 21"/><path d="M12 12.5l4 8.5"/></svg>',
   hist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>',
   bars:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
@@ -843,6 +854,11 @@ function detailOf(s){
     }).filter(Boolean);
     return `Lift · ${parts.join("  ")||"—"}`;
   }
+  if(s.type==="mobility"){
+    const done=(s.mobility||{}).done||[];
+    const names=done.map(k=>MOBILITY_ROUTINE.find(m=>m.key===k)?.short||k);
+    return `Mobility · ${names.join(", ")||"—"}`;
+  }
   return"—";
 }
 
@@ -858,7 +874,7 @@ function setProgressUndo(){
 function blankForm(){
   return { type:"climb", date:todayStr(), grades:[], attempts:{}, protocol:"repeater", edge:20, grip:"half",
     addedLb:0, sets:5, entries:blankLiftEntries(), finger:"good", effort:null, notes:"",
-    sleep:null, soreness:null, gradeRole:null };
+    sleep:null, soreness:null, gradeRole:null, mobilityDone:[] };
 }
 /* Applies data-driven suggestions to a form — only safe to call once `store` is loaded. */
 function applySuggestions(f){
@@ -977,8 +993,15 @@ function renderPlan(){
     ? `${streak.current}-week streak${streak.best>streak.current?` <small>· best ${streak.best}</small>`:""}`
     : `Log a session this week to start a streak`;
 
-  const typeIcon={climb:I.climb,hang:I.hang,lift:I.lift};
+  const typeIcon={climb:I.climb,hang:I.hang,lift:I.lift,mobility:I.mobility};
   const insight=sessionInsight(next);
+  const mobilityDoneToday=store.sessions.some(s=>s.type==="mobility"&&s.date===todayStr());
+  const mobilityRow=`<div class="field">
+    <div class="hint" style="display:flex;align-items:center;justify-content:space-between">
+      <span style="color:${mobilityDoneToday?"var(--mobility)":"var(--faint)"}">${mobilityDoneToday?"✓ Mobility done today":"10-min daily mobility not logged yet"}</span>
+      ${mobilityDoneToday?"":`<span id="logMobility" style="text-decoration:underline;cursor:pointer;color:var(--accent)">Log</span>`}
+    </div>
+  </div>`;
 
   const warnBlock = warnings.length ? `<div class="field">${warnings.map(w=>{
     const bg = w.level==="bad" ? "#3A2622" : w.level==="warn" ? "#3A3122" : w.level==="good" ? "#1E3327" : "var(--panel)";
@@ -1043,6 +1066,7 @@ function renderPlan(){
   return errBanner()+`
     ${isDeload?`<div class="field"><div style="background:#22303A;color:var(--accent);border-radius:12px;padding:12px 14px;font-size:13px;">Deload week: halve hangboard/lift volume.</div></div>`:""}
     ${upNextCard}
+    ${mobilityRow}
     ${renderHeatmap()}
     ${warnBlock}
     ${phaseCard}
@@ -1115,11 +1139,28 @@ function renderLog(){
         ${stepper("Added load","addedLb",f.addedLb,"lb")}
         ${stepper("Sets","sets",f.sets,"")}
       </div></div>`;
-  } else {
+  } else if(f.type==="lift"){
     body=LIFT_DAY.map(L=>liftBlock(L,f.entries[L.key]||[])).join("");
+  } else {
+    const done=f.mobilityDone||[];
+    body=`<div class="field"><div class="flabel">10-min daily mobility</div>
+      <div class="hint" style="margin-bottom:10px">Dynamic mobility, not static holds — better before climbing or hangboard, and gentler on tissue right before a hard effort (Behm &amp; Chaouachi, 2011).</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${MOBILITY_ROUTINE.map(m=>{
+          const on=done.includes(m.key);
+          return `<button class="chip" data-mobility="${m.key}" style="flex-direction:row;justify-content:space-between;align-items:center;text-align:left;padding:12px 14px;
+            border-color:${on?"var(--mobility)":"var(--line)"};background:${on?"rgba(139,127,209,.13)":"var(--panel)"}">
+            <span style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+              <span style="color:var(--ink);font-size:14px;font-weight:700">${esc(m.name)}</span>
+              <span class="sub" style="color:var(--faint)">${m.dur}</span>
+            </span>
+            <span style="color:var(--mobility)">${on?I.check:""}</span>
+          </button>`;
+        }).join("")}
+      </div></div>`;
   }
 
-  const finger = `<div class="field"><div class="flabel">Finger status${f.type==="lift"?" (optional)":""}</div>
+  const finger = `<div class="field"><div class="flabel">Finger status${f.type==="lift"||f.type==="mobility"?" (optional)":""}</div>
     <div class="row3">${Object.entries(FINGER).map(([k,x])=>{
       const on=f.finger===k;
       return `<button class="chip" data-finger="${k}"
@@ -1191,6 +1232,7 @@ function renderLog(){
       <button data-val="climb" class="${f.type==="climb"?"on":""}">${I.climb}Climb</button>
       <button data-val="hang" class="${f.type==="hang"?"on":""}">${I.hang}Hang</button>
       <button data-val="lift" class="${f.type==="lift"?"on":""}">${I.lift}Lift</button>
+      <button data-val="mobility" class="${f.type==="mobility"?"on":""}">${I.mobility}Mobility</button>
     </div>
     <div class="daterow">
       <input type="date" id="date" value="${f.date}">
@@ -1309,7 +1351,7 @@ function renderHistory(){
     <div class="icon">${I.hist}</div>
     <div class="t">No sessions</div>
     <div class="b">Log a climb, hang, or lift on the Log tab.</div></div>`;
-  const icon={climb:I.climb,hang:I.hang,lift:I.lift};
+  const icon={climb:I.climb,hang:I.hang,lift:I.lift,mobility:I.mobility};
   return errBanner()+list.map(s=>{
     const f=s.finger?FINGER[s.finger]:null;
     return `<div class="hcard" data-edit="${s.id}" style="cursor:pointer">
@@ -1689,6 +1731,7 @@ function valid(){
   if(f.type==="climb") return (f.grades.length>0 || Object.values(f.attempts||{}).some(v=>v>0)) && !!f.finger;
   if(f.type==="hang") return !!f.finger;
   if(f.type==="lift") return LIFT_DAY.some(L=>(f.entries[L.key]||[]).some(r=>(r.weight??"")!==""));
+  if(f.type==="mobility") return (f.mobilityDone||[]).length>0;
   return false;
 }
 function bumpGrade(g,d){
@@ -1715,6 +1758,7 @@ function loadSessionIntoForm(sess){
       f.entries[L.key]=Array.from({length:L.sets},(_,i)=>rows[i]?{weight:rows[i].weight,reps:rows[i].reps}:{weight:"",reps:""});
     });
   }
+  if(sess.type==="mobility") f.mobilityDone=[...((sess.mobility||{}).done||[])];
   return f;
 }
 function commitSave(){
@@ -1739,6 +1783,7 @@ function commitSave(){
     });
     s.lift={entries};
   }
+  if(f.type==="mobility") s.mobility={done:[...(f.mobilityDone||[])]};
   const editing=!!ui.editingId;
   ui.celebrate=null;
   if(editing){
@@ -1755,7 +1800,10 @@ function commitSave(){
     // correcting old sessions never triggers a fake "new PR" moment.
     let priorHardestEver=-1;
     store.sessions.forEach(x=>(x.grades||[]).forEach(g=>{ if(g>priorHardestEver) priorHardestEver=g; }));
-    store.sessions.push(s); advanceProgress();
+    store.sessions.push(s);
+    // Mobility runs parallel to the phase's session-week cycle, not part of it — logging it
+    // shouldn't advance the plan's slot pointer through the climb/hang/lift rotation.
+    if(f.type!=="mobility") advanceProgress();
     const newMax = (s.grades||[]).length ? Math.max(...s.grades) : -1;
     if(newMax>priorHardestEver && newMax>=0) ui.celebrate={...ui.celebrate, pr:newMax};
     if(MILESTONES.includes(store.sessions.length)) ui.celebrate={...ui.celebrate, milestone:store.sessions.length};
@@ -1818,6 +1866,13 @@ function wire(){
       updateSaveBtn();
     };
   });
+  // mobility checklist
+  $main.querySelectorAll("[data-mobility]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.mobility, f=ui.form;
+    const done=f.mobilityDone||[];
+    f.mobilityDone = done.includes(k) ? done.filter(x=>x!==k) : [...done,k];
+    render();
+  });
   // finger / effort
   $main.querySelectorAll("[data-finger]").forEach(b=>b.onclick=()=>{ ui.form.finger=b.dataset.finger; render(); });
   $main.querySelectorAll("[data-effort]").forEach(b=>b.onclick=()=>{
@@ -1872,6 +1927,12 @@ function wire(){
     const next=currentProgress().next;
     ui.editingId=null;
     ui.form=freshForm(next.type, next.protocol, next.gradeRole);
+    ui.gradeExpanded=false; ui.logMoreOpen=false;
+    ui.tab="log"; render();
+  };
+  const lm=$main.querySelector("#logMobility"); if(lm) lm.onclick=()=>{
+    ui.editingId=null;
+    ui.form=freshForm("mobility");
     ui.gradeExpanded=false; ui.logMoreOpen=false;
     ui.tab="log"; render();
   };
@@ -2009,11 +2070,12 @@ function doBackup(){
 }
 function validSession(s){
   if(!s||typeof s!=="object") return false;
-  if(!s.id||!s.date||!["climb","hang","lift"].includes(s.type)) return false;
+  if(!s.id||!s.date||!["climb","hang","lift","mobility"].includes(s.type)) return false;
   if(s.type==="climb" && !Array.isArray(s.grades)) return false;
   if(s.attempts!=null && (typeof s.attempts!=="object" || Array.isArray(s.attempts))) return false;
   if(s.type==="hang" && (!s.hang||typeof s.hang!=="object")) return false;
   if(s.type==="lift" && (!s.lift||typeof s.lift!=="object")) return false;
+  if(s.type==="mobility" && (!s.mobility||typeof s.mobility!=="object")) return false;
   return true;
 }
 document.getElementById("importer").onchange=e=>{

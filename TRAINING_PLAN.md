@@ -82,6 +82,21 @@ Band pull-apart, wrist extensor curl, and hanging leg raise stay at a steady, no
 
 Antagonist and wrist work (rows 2-4) stay in at a steady, non-maxing effort in every phase — they're prehab, not the point of the session, and skipping them is how overuse injuries creep in later.
 
+## Daily Mobility (10 minutes, every day)
+
+Unlike the Lift/Hang/Climb rotation, mobility isn't part of the session-week slot cycle — it's a daily, low-intensity add-on that runs in parallel with whatever phase you're in, and logging it does not advance the plan pointer. Six short drills, dynamic rather than static:
+
+| Drill | Time | Why |
+|---|---|---|
+| Wrist & finger extensor mobility | 90s | Direct counterbalance to hangboard/climbing flexor loading — same rationale as the Lift Day wrist extensor curl, just daily instead of weekly. Source: Schöffl et al., climbing injury epidemiology (overuse patterns, antagonist rationale). |
+| Shoulder CARs (controlled articular rotations) | 90s | Rotator-cuff and overhead-range health for a pull-dominant sport. CARs (slow, end-range-loaded joint circles) are a widely used joint-health protocol in strength/mobility coaching (Functional Range Conditioning, Dr. Andreo Spina). |
+| Thoracic spine rotation ("open book") | 90s | Upper-back rotation range feeds directly into reach and hip/shoulder counter-rotation on steep, technical terrain. |
+| Hip 90/90 or hip-flexor stretch | 90s | High steps, flagging, and rotation all draw on hip mobility — a commonly under-trained limiter for intermediate climbers who train pulling strength far more than range of motion. |
+| Ankle dorsiflexion rocks | 60s | Precise smearing and edging depend on ankle range as much as footwork skill. |
+| Neck / upper-trap release | 60s | Offsets the tension from looking up at holds and shouldering load during hangs and lifts. |
+
+**Dynamic, not static, and timing matters.** This routine is deliberately built from controlled, moving mobility work rather than long static holds, because static stretching held right before a high-intensity effort has a well-documented acute effect of transiently reducing maximal strength and power output (Behm, D.G. & Chaouachi, A. (2011), *A review of the acute effects of static and dynamic stretching on performance*, European Journal of Applied Physiology). Practical implication: do this routine before a session as a warm-up primer, or on its own on a rest day — save any longer static-stretch holds you want to add for *after* training or on a separate day, not immediately before max hangs or limit bouldering.
+
 ## Session order per phase
 
 The app cycles through these lists once per session-week; order is a guide, not a hard sequence — log whatever type you actually did and it still advances.
@@ -163,6 +178,8 @@ This is real autoregulation (Source: standard resistance-training autoregulation
 - Tyler Nelson / Camp4 Human Performance — tendon adaptation and finger-training-frequency commentary.
 - Gabbett, T.J. (2016). *The training—injury prevention paradox: should athletes be training smarter and harder?* British Journal of Sports Medicine. Source for the acute:chronic workload ratio (ACWR) concept behind the training-load spike guardrail.
 - Hubal, M.J. et al. (2005). *Variability in muscle size and strength gain after unilateral resistance training.* Medicine & Science in Sports & Exercise. Cited for the individual-response-variability limitation noted above — same training stimulus produces meaningfully different adaptation across individuals.
+- Behm, D.G. & Chaouachi, A. (2011). *A review of the acute effects of static and dynamic stretching on performance.* European Journal of Applied Physiology. Source for the daily mobility routine's dynamic-before/static-after sequencing.
+- Dr. Andreo Spina — Functional Range Conditioning (FRC), source for the CARs (controlled articular rotations) protocol used in the daily mobility routine's shoulder drill; widely adopted across strength & mobility coaching, not a peer-reviewed source.
 
 **Caveat:** several of the above (Philippe et al., Schweizer & Hudek) are cited from memory of the general findings/thrust of published climbing-science literature — verify exact figures/years before quoting them anywhere user-facing. The protocols (López repeaters, Bechtel standards, Hörst/Anderson periodization) are well-established and widely reproduced in the climbing training community, but treat this doc as a first draft to sanity-check, not a peer-reviewed citation list.
 
