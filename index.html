@@ -67,7 +67,7 @@
   .gcard .gctl{display:flex; align-items:center; gap:4px;}
   .gcard .gval{font-family:ui-monospace,monospace; font-size:15px; font-weight:700;
     min-width:20px; text-align:center; color:var(--ink);}
-  .gstepbtn{width:30px; height:30px; border-radius:8px; border:1px solid var(--line);
+  .gstepbtn{width:36px; height:36px; border-radius:8px; border:1px solid var(--line);
     background:var(--panel2); color:var(--ink); display:flex; align-items:center; justify-content:center;}
   .gstepbtn svg{width:13px; height:13px;}
   .hint{color:var(--faint); font-size:11px; margin-top:8px;}
@@ -90,25 +90,18 @@
   .liftrow .name{width:52px; color:var(--ink); font-weight:800; font-size:14px;}
   .liftrow .x{color:var(--faint);}
   .numin{box-sizing:border-box; background:var(--panel2); border:1px solid var(--line);
-    border-radius:9px; color:var(--ink); text-align:center; padding:10px 6px;
+    border-radius:9px; color:var(--ink); text-align:center; padding:13px 6px;
     font-family:ui-monospace,monospace; font-size:15px; font-weight:700;}
-  .amrap{margin-left:auto; width:40px; height:40px; border-radius:10px;
-    border:1px solid var(--line); background:var(--panel2); color:var(--faint);
-    font-weight:800; font-size:12px;}
-  .amrap.on{border-color:var(--accent); background:rgba(111,179,201,.13); color:var(--accent);}
 
-  /* finger / effort row */
+  /* finger / effort / sleep / soreness — one shared chip component, optional 2nd-line sublabel */
   .row3{display:flex; gap:8px;}
   .chip{flex:1; border-radius:12px; padding:12px 4px; border:1.5px solid var(--line);
     background:var(--panel); color:var(--sub); font-weight:700; font-size:14px;
     display:flex; flex-direction:column; align-items:center; gap:5px;}
   .chip .dot{width:12px; height:12px; border-radius:6px;}
-  .effortchip{flex:1; border-radius:10px; padding:10px 4px; border:1px solid var(--line);
-    background:var(--panel); color:var(--sub); font-weight:700; font-size:13px;
-    display:flex; flex-direction:column; align-items:center; gap:2px;}
-  .effortchip .rpe{font-size:10px; font-weight:600; color:var(--faint);}
-  .effortchip.on{border-color:var(--accent); background:rgba(111,179,201,.13); color:var(--ink);}
-  .effortchip.on .rpe{color:var(--accent);}
+  .chip .sub{font-size:10px; font-weight:600; color:var(--faint);}
+  .chip.on{border-color:var(--accent); background:rgba(111,179,201,.13); color:var(--ink);}
+  .chip.on .sub{color:var(--accent);}
 
   textarea.notes{width:100%; resize:none; background:var(--panel); border:1px solid var(--line);
     border-radius:12px; color:var(--ink); font-size:15px; padding:12px 14px;}
@@ -151,6 +144,7 @@
     font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px;
     border:1px solid var(--line); transition:background .2s; margin-bottom:10px;}
   .btn2.flash{background:var(--good); color:#0E1418; border-color:var(--good);}
+  .btn2.danger{background:transparent; color:var(--pain); border-color:var(--pain);}
   .btn2 svg{width:18px; height:18px;}
   .note{color:var(--faint); font-size:12px; margin-top:2px; text-align:center; line-height:1.5;}
 
@@ -204,7 +198,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v21";
+const APP_VERSION = "v22";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -222,7 +216,7 @@ const LIFT_DAY = [
   {key:"hlr",       name:"Hanging leg raise",        short:"Leg raise",  sets:3, repTarget:"8-10"},
 ];
 function blankLiftEntries(){
-  const o={}; LIFT_DAY.forEach(L=>{ o[L.key]=Array.from({length:L.sets},()=>({weight:"",reps:"",amrap:false})); });
+  const o={}; LIFT_DAY.forEach(L=>{ o[L.key]=Array.from({length:L.sets},()=>({weight:"",reps:""})); });
   return o;
 }
 const FINGER = {
@@ -281,55 +275,55 @@ const LIFT_FULL = {
 /* {{grade}} is resolved at render time from your logged send history (see gradeRangeFor). */
 const WEEKLY_TEMPLATES = {
   recon:[
-    {type:"climb",label:"Climb — volume",  detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
+    {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Volume: high. Angle: easy-moderate. Constraint: footwork precision, not difficulty. No limit attempts."},
-    {type:"hang", label:"Hangboard — repeaters", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
+    {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
       full:"Edge: 20mm. Load: {{load}}. Protocol: 7s hang / 3s rest × 6 reps, 3min rest between sets, 2 sets/grip type (open + half-crimp)."},
-    {type:"climb",label:"Climb — volume",  detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
+    {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
       full:"Same as other volume day. Grade: {{grade}}. Mileage + footwork, not difficulty."},
-    {type:"hang", label:"Hangboard — repeaters", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
+    {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
       full:"2nd repeater session this week. Same protocol as prior session. Edge: 20mm. Load: {{load}}."},
     {type:"lift", label:"Lift — light",  detail:"6 lifts · light load", targetRpe:5,
       full:LIFT_FULL.recon},
-    {type:"climb",label:"Climb — ARC / easy", detail:"{{grade}} · 20–30min continuous", targetRpe:4, gradeRole:"arc",
+    {type:"climb",label:"Climb — ARC / easy (active recovery)", detail:"{{grade}} · 20–30min continuous", targetRpe:4, gradeRole:"arc",
       full:"Grade: {{grade}}. Duration: 20-30min continuous movement, minimal rest. No pump."},
   ],
   strength:[
-    {type:"climb",label:"Climb — volume",  detail:"{{grade}} · footwork drills", targetRpe:6, gradeRole:"volume",
+    {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · footwork drills", targetRpe:6, gradeRole:"volume",
       full:"Grade: {{grade}}. Volume: moderate. Include 2-3 footwork-drill problems. Warm up before harder attempts."},
-    {type:"hang", label:"Hangboard — max hangs", detail:"20mm · {{load}} · 10s/3min×5–6",protocol:"max", targetRpe:9,
+    {type:"hang", label:"Hangboard — max hangs (raw strength)", detail:"20mm · {{load}} · 10s/3min×5–6",protocol:"max", targetRpe:9,
       full:"Edge: 20mm. Load: {{load}} (near-max). Protocol: 10s hang / 3min rest × 5-6 sets. Full rest required, no shortcuts."},
-    {type:"climb",label:"Climb — volume / ARC", targetRpe:5, gradeRole:"volume",
+    {type:"climb",label:"Climb — volume / ARC (mileage)", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Active recovery / mileage."},
-    {type:"hang", label:"Hangboard — repeaters", detail:"{{load}} · repeaters + core",protocol:"repeater", targetRpe:6,
+    {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"{{load}} · repeaters + core",protocol:"repeater", targetRpe:6,
       full:"Load: {{load}}. Repeaters + core. Intensity: moderate — maintenance, not primary stimulus."},
     {type:"lift", label:"Lift — build",  detail:"6 lifts · progressive overload", targetRpe:7,
       full:LIFT_FULL.strength},
-    {type:"climb",label:"Climb — project/limit",   detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
+    {type:"climb",label:"Climb — project/limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
       full:"Grade: {{grade}}. Volume: low. Rest: full (3-5min) between attempts. Movement quality not required. Scheduled last, after both volume days, so it lands on fresher tissue."},
   ],
   power:[
-    {type:"climb",label:"Climb — limit",   detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
+    {type:"climb",label:"Climb — limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
       full:"Grade: {{grade}}. Volume: low. Rest: full between attempts."},
-    {type:"hang", label:"Hangboard — maintenance", detail:"1×/week · {{load}}",protocol:"max", targetRpe:7,
+    {type:"hang", label:"Hangboard — maintenance (hold current strength)", detail:"1×/week · {{load}}",protocol:"max", targetRpe:7,
       full:"Frequency: 1×/week. Load: {{load}}. Sets: 3-4. Maintenance only, no new PRs."},
-    {type:"climb",label:"Climb — power-endurance", detail:"4x4s · {{grade}}", targetRpe:8, gradeRole:"powerEnd",
+    {type:"climb",label:"Climb — power-endurance (linking hard moves)", detail:"4x4s · {{grade}}", targetRpe:8, gradeRole:"powerEnd",
       full:"Grade: {{grade}}. Protocol: 4x4s or linked circuits. Rest: minimal between attempts."},
     {type:"lift", label:"Lift — maintain",  detail:"6 lifts · hold current load", targetRpe:6,
       full:LIFT_FULL.power},
-    {type:"climb",label:"Climb — volume / campus", targetRpe:5, gradeRole:"volume",
+    {type:"climb",label:"Climb — volume / campus (mileage)", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}} volume, or campus (basic ladders, matching only)."},
   ],
   perform:[
-    {type:"climb",label:"Climb — project",  detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
+    {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
       full:"Grade: {{grade}}. Rest: full between burns."},
-    {type:"hang", label:"Hangboard — maintenance", detail:"{{load}} · short session",protocol:"max", targetRpe:6,
+    {type:"hang", label:"Hangboard — maintenance (hold current strength)", detail:"{{load}} · short session",protocol:"max", targetRpe:6,
       full:"Load: {{load}}. Duration: short. Maintenance only, no grinding."},
-    {type:"climb",label:"Climb — project",  detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
+    {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
       full:"2nd project session this week. Grade: {{grade}}. Rest: full between burns."},
     {type:"lift", label:"Lift — maintain",  detail:"6 lifts · reduced volume", targetRpe:5,
       full:LIFT_FULL.perform},
-    {type:"climb",label:"Climb — volume / technique", targetRpe:5, gradeRole:"volume",
+    {type:"climb",label:"Climb — volume / technique (mileage)", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Volume or technique review (film footwork/hips on project crux)."},
   ],
 };
@@ -401,8 +395,16 @@ function findMatchingSlot(f){
    Autoregulated progressive overload: hold/deload after a hard or painful session, add load
    after an easy/solid one, halve suggested load outright during a deload week. */
 function loadText(lb){ return lb>0?`+${lb}lb`:lb<0?`${lb}lb`:"bodyweight"; }
-function suggestHangLoad(protocol){
-  const hist=[...store.sessions].filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol).sort((a,b)=>a.date<b.date?1:-1);
+/* Half-crimp and open-hand loads aren't comparable — default to whichever grip you most
+   recently logged for this protocol, so load suggestions/trends aren't averaging apples
+   and oranges. */
+function latestGripFor(protocol){
+  const s=[...store.sessions].filter(x=>x.type==="hang"&&x.hang&&x.hang.protocol===protocol).sort((a,b)=>a.date<b.date?1:-1)[0];
+  return s?.hang?.grip || "half";
+}
+function suggestHangLoad(protocol,grip){
+  grip = grip || latestGripFor(protocol);
+  const hist=[...store.sessions].filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol&&(s.hang.grip||"half")===grip).sort((a,b)=>a.date<b.date?1:-1);
   const cur=currentProgress();
   if(!hist.length){
     if(protocol==="max"){ const bench=latestBenchmark("hang"); return bench?Math.round(bench.value):0; }
@@ -505,20 +507,20 @@ function computeGuardrails(store){
   const recentFinger=fingerSessions.slice(0,10);
   const has48hViolation=recentFinger.some((s,i)=> i<recentFinger.length-1 && Math.abs(dayDiff(s.date,recentFinger[i+1].date))<=1);
   if(has48hViolation){
-    out.push({level:"bad",text:"48h rule violated: finger-intensity sessions on consecutive days. Add rest day."});
+    out.push({level:"bad",text:"Add a rest day — two finger-intensity sessions landed on consecutive days (48h rule)."});
   }
   const rollingCutoff=dayDiff(todayStr(),"1970-01-01")-7;
   const last7dFinger=fingerSessions.filter(s=>dayDiff(s.date,"1970-01-01")>rollingCutoff);
   if(last7dFinger.length>3){
-    out.push({level:"warn",text:`Finger sessions: ${last7dFinger.length}/7d. Cap: 3/wk. Reduce frequency.`});
+    out.push({level:"warn",text:`Reduce finger-intensity frequency — ${last7dFinger.length} sessions this week, cap is 3.`});
   }
   // Widened pain-trend: catches alternating pain/tweaky patterns (e.g. pain -> good -> tweaky),
   // not just two identical consecutive flags, since that's still a recurring-issue signal.
   const recentFlags=sessions.filter(s=>s.finger).slice(0,3).map(s=>s.finger);
   if(recentFlags[0]==="pain" && recentFlags[1]==="pain"){
-    out.push({level:"bad",text:"Pain flagged: 2 consecutive sessions. Deload required."});
+    out.push({level:"bad",text:"Take a deload — pain flagged 2 sessions in a row."});
   } else if(recentFlags.filter(f=>f==="pain"||f==="tweaky").length>=2){
-    out.push({level:"warn",text:"Pain/tweaky in 2 of last 3 finger sessions. Reduce intensity."});
+    out.push({level:"warn",text:"Ease off intensity — pain or tweaky fingers in 2 of your last 3 sessions."});
   }
 
   // acute:chronic workload ratio — overall session-count spike detection, not just finger sessions.
@@ -535,7 +537,7 @@ function computeGuardrails(store){
   if(chronicWeekly>=2){
     const acwr=acuteCount/chronicWeekly;
     if(acwr>1.5){
-      out.push({level:"warn",text:`ACWR ${acwr.toFixed(1)} (${acuteCount} sessions/7d vs ${chronicWeekly.toFixed(1)}/wk avg). Threshold: 1.5. Reduce volume.`});
+      out.push({level:"warn",text:`Reduce volume — you're training much more than usual this week (${acuteCount} sessions vs your ${chronicWeekly.toFixed(1)}/wk average, load ratio ${acwr.toFixed(1)}, threshold 1.5).`});
     }
   }
 
@@ -548,7 +550,7 @@ function computeGuardrails(store){
   if(chronicTriesWeekly>=10){
     const triesAcwr=acuteTries/chronicTriesWeekly;
     if(triesAcwr>1.5){
-      out.push({level:"warn",text:`Climbing volume spike: ${acuteTries} tries/7d (sends+attempts) vs ${chronicTriesWeekly.toFixed(0)}/wk avg. Threshold: 1.5×. Reduce volume.`});
+      out.push({level:"warn",text:`Reduce volume — a single session's climbing load spiked this week (${acuteTries} sends+attempts vs your ${chronicTriesWeekly.toFixed(0)}/wk average, load ratio ${triesAcwr.toFixed(1)}, threshold 1.5).`});
     }
   }
 
@@ -580,13 +582,13 @@ function computeGuardrails(store){
   // RPE/intensity-mismatch — flags intensity creep: logging a much harder effort than the day called for.
   if(sessions[0] && sessions[0].intensityFlag){
     const {target,actual}=sessions[0].intensityFlag;
-    out.push({level:"warn",text:`Intensity mismatch: RPE ${actual} logged vs target RPE ${target}. Reduce intensity.`});
+    out.push({level:"warn",text:`That last session ran harder than planned — logged effort was RPE ${actual}, this slot targets around RPE ${target}. Ease off on the next easy day.`});
   }
 
   // readiness caution — if the most recent readiness log was poor and the next session is high-intensity.
   const lastReadiness=sessions.find(s=>s.sleep||s.soreness);
   if(lastReadiness && (lastReadiness.sleep==="poor" || lastReadiness.soreness==="sore") && (cur.next?.targetRpe??0)>=8){
-    out.push({level:"warn",text:`Readiness: ${lastReadiness.sleep==="poor"?"poor sleep":"sore"}. Next session high-intensity (${cur.next.label}). Consider substitution.`});
+    out.push({level:"warn",text:`Consider swapping in something lighter — you logged ${lastReadiness.sleep==="poor"?"poor sleep":"soreness"} last time, and the next session (${cur.next.label}) is high-intensity.`});
   }
 
   return out;
@@ -605,7 +607,7 @@ function hardAttemptsCheck(){
   const hardAttempts=Object.entries(lastClimb.attempts||{}).filter(([g])=>Number(g)>cg).reduce((a,[,v])=>a+v,0);
   const hard=hardSends+hardAttempts;
   if(hard>12){
-    return `${hard} hard tries (>V${cg}) in last session. Cap ~10-15 quality attempts/session at limit grades — beyond that, technique degrades under fatigue faster than strength is gained.`;
+    return `Quality over quantity next limit session — ${hard} hard tries above V${cg} last time. Past ~10-15, technique degrades faster than strength is gained.`;
   }
   return null;
 }
@@ -614,7 +616,7 @@ function plateauCheck(metric,label){
   if(vals.length<3) return null;
   const last3=vals.slice(-3);
   if(last3[1]<=last3[0] && last3[2]<=last3[1]){
-    return `${label} plateaued: 3 sessions flat (${last3.join("→")}lb). Check technique/recovery/sleep/nutrition.`;
+    return `${label} has plateaued — flat for 3 sessions (${last3.join("→")}lb). Check technique, recovery, sleep, or nutrition before assuming it's a real ceiling.`;
   }
   return null;
 }
@@ -635,9 +637,9 @@ function stalledGradeCheck(){
     return sum+sends+attempts;
   },0);
   if(triesAtProject===0){
-    return `Not attempting V${projectGrade} (next grade up): 0 logged tries in last 3 sessions. Log attempts even without a send — otherwise "stalled" can't be distinguished from "not tried".`;
+    return `Log attempts at V${projectGrade}, even without a send — you haven't logged any tries there in your last 3 sessions, so "stalled" can't be told apart from "not tried yet".`;
   }
-  return `Grade stalled: V${hardestEver} ceiling, ${triesAtProject} tries at V${projectGrade} across 3 sessions, 0 sends. Cycle back to Strength Base (6-8 session-weeks).`;
+  return `Cycle back to a Strength Base block (6-8 session-weeks) — V${hardestEver} has been your ceiling for 3 sessions despite ${triesAtProject} tries at V${projectGrade} with no send.`;
 }
 
 /* icons (inline svg) */
@@ -686,7 +688,7 @@ function detailOf(s){
       const rows=(l.entries||{})[L.key]; if(!rows||!rows.length) return null;
       const setsStr=rows.map(r=>{
         const w=L.bw?(Number(r.weight)?`+${r.weight}`:"BW"):r.weight;
-        return `${w}×${r.reps||"?"}${r.amrap?"+":""}`;
+        return `${w}×${r.reps||"?"}`;
       }).join(",");
       return `${L.short} ${setsStr}`;
     }).filter(Boolean);
@@ -697,7 +699,7 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false, loadError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, planDetailOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,benchmarks:false,recovery:false,strength:false,data:false} };
 function setProgressUndo(){
   ui.progressUndo={progress:{...store.progress}};
   clearTimeout(ui._undoTimer);
@@ -706,16 +708,19 @@ function setProgressUndo(){
 
 function blankForm(){
   return { type:"climb", date:todayStr(), grades:[], attempts:{}, protocol:"repeater", edge:20, grip:"half",
-    addedLb:0, sets:5, entries:blankLiftEntries(), finger:null, effort:null, notes:"",
-    sleep:null, soreness:null, warmedUp:false, gradeRole:null };
+    addedLb:0, sets:5, entries:blankLiftEntries(), finger:"good", effort:null, notes:"",
+    sleep:null, soreness:null, gradeRole:null };
 }
 /* Applies data-driven suggestions to a form — only safe to call once `store` is loaded. */
 function applySuggestions(f){
-  if(f.type==="hang") f.addedLb=suggestHangLoad(f.protocol);
+  if(f.type==="hang") f.addedLb=suggestHangLoad(f.protocol,f.grip);
   if(f.type==="lift"){
     LIFT_DAY.forEach(L=>{
       const sug=suggestLiftWeight(L.key);
-      if(sug!=null) f.entries[L.key]=f.entries[L.key].map(r=>({...r,weight:String(sug)}));
+      const targetReps=parseInt(L.repTarget,10);
+      f.entries[L.key]=f.entries[L.key].map(r=>({...r,
+        weight: sug!=null?String(sug):r.weight,
+        reps: r.reps===""?String(targetReps):r.reps}));
     });
   }
   if(f.type==="climb" && !f.gradeRole) f.gradeRole="volume";
@@ -822,7 +827,9 @@ function renderPlan(){
   const warnBlock = warnings.length ? `<div class="field">${warnings.map(w=>{
     const bg = w.level==="bad" ? "#3A2622" : w.level==="warn" ? "#3A3122" : "var(--panel)";
     const fg = w.level==="bad" ? "#F0C6BE" : w.level==="warn" ? "#F0DFA6" : "var(--sub)";
-    return `<div style="background:${bg};color:${fg};border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:8px;line-height:1.4;">${esc(w.text)}</div>`;
+    const border = w.level==="bad" ? "var(--pain)" : w.level==="warn" ? "var(--tweaky)" : "var(--line)";
+    const glyph = w.level==="bad" ? "⚠ " : w.level==="warn" ? "! " : "";
+    return `<div style="background:${bg};color:${fg};border-radius:12px;border-left:4px solid ${border};padding:12px 14px;font-size:13px;margin-bottom:8px;line-height:1.4;">${glyph}${esc(w.text)}</div>`;
   }).join("")}</div>` : "";
 
   const detailOpen = ui.planDetailOpen;
@@ -872,10 +879,11 @@ function renderPlan(){
       : `<div class="hint" style="margin-top:8px"><span data-planpos="toggle" style="text-decoration:underline;cursor:pointer">Adjust phase/week</span></div>`}
     </div>
     ${isDeload?`<div class="field"><div style="background:#22303A;color:var(--accent);border-radius:12px;padding:12px 14px;font-size:13px;">Deload week: halve hangboard/lift volume.</div></div>`:""}
-    ${warnBlock}
     ${upNextCard}
-    <div class="field"><div class="flabel">${phase.name} — session order · tap to set as next</div>
-      <div class="stack" style="gap:0;padding:6px 14px">
+    ${warnBlock}
+    <div class="field">
+      <div class="hint"><span id="planSlotsToggle" style="text-decoration:underline;cursor:pointer">${ui.planSlotsOpen?"Hide":"View"} full session order for ${esc(phase.name)}</span></div>
+      ${ui.planSlotsOpen?`<div class="stack" style="gap:0;padding:6px 14px;margin-top:10px">
         ${slots.map((s,i)=>{
           const state = i<slot?"done":i===slot?"next":"upcoming";
           const border=i<slots.length-1?"border-bottom:1px solid var(--line);":"";
@@ -887,7 +895,7 @@ function renderPlan(){
           </div>`;
         }).join("")}
       </div>
-      <div class="hint" style="margin-top:8px">No calendar deadlines. Advances on log, not date. Tap to reorder.</div>
+      <div class="hint" style="margin-top:8px">No calendar deadlines. Advances on log, not date. Tap a row to reorder.</div>`:""}
     </div>`;
 }
 
@@ -900,7 +908,14 @@ function renderLog(){
   if(f.type==="climb"){
     const role=f.gradeRole||"volume";
     const [lo,hi]=gradeRangeFor(role);
-    const maxG=11;
+    const maxG=Math.max(11,(store.settings.targetGrade??8)+3);
+    // Default to a narrow window around today's target band so you're not scanning 24 cards —
+    // but never hide a grade that already has a logged count, and let "show all" override.
+    const used=[...Object.keys(gc).filter(g=>gc[g]>0),...Object.keys(att).filter(g=>att[g]>0)].map(Number);
+    const padLo=Math.max(0,lo-2), padHi=Math.min(maxG,hi+2);
+    const visLo = ui.gradeExpanded?0:Math.min(padLo, used.length?Math.min(...used):padLo);
+    const visHi = ui.gradeExpanded?maxG:Math.max(padHi, used.length?Math.max(...used):padHi);
+    const range=Array.from({length:visHi-visLo+1},(_,i)=>visLo+i);
     const gradeCard=(g,kind,val)=>{
       const suggested = kind==="sends" && g>=lo && g<=hi;
       return `<div class="gcard" style="${suggested?"border-color:var(--accent);background:rgba(111,179,201,.10)":""}">
@@ -913,11 +928,13 @@ function renderLog(){
     };
     body=`<div class="field"><div class="flabel">Sends by grade</div>
       <div class="hint" style="margin-bottom:8px">Target: <strong style="color:var(--accent)">${gradeRangeText(role)}</strong></div>
-      <div class="gcards">${Array.from({length:maxG+1},(_,g)=>gradeCard(g,"sends",gc[g]||0)).join("")}</div></div>
+      <div class="gcards">${range.map(g=>gradeCard(g,"sends",gc[g]||0)).join("")}</div></div>
       <div class="field"><div class="flabel">Attempts by grade (no send)</div>
-      <div class="gcards">${Array.from({length:maxG+1},(_,g)=>gradeCard(g,"attempts",att[g]||0)).join("")}</div></div>`;
+      <div class="gcards">${range.map(g=>gradeCard(g,"attempts",att[g]||0)).join("")}</div>
+      <div class="hint" style="margin-top:8px"><span id="gradeExpandToggle" style="text-decoration:underline;cursor:pointer">${ui.gradeExpanded?"Show fewer grades":`Show all grades (V0–V${maxG})`}</span></div>
+      </div>`;
   } else if(f.type==="hang"){
-    const sugLb=suggestHangLoad(f.protocol);
+    const sugLb=suggestHangLoad(f.protocol,f.grip);
     body=`<div class="field"><div class="flabel">Hangboard</div>
       <div class="seg" style="margin-bottom:10px" data-seg="protocol">
         <button data-val="repeater" class="${f.protocol==="repeater"?"on":""}">Repeaters</button>
@@ -943,12 +960,12 @@ function renderLog(){
         <span class="dot" style="background:${x.dot}"></span>${x.label}</button>`;
     }).join("")}</div></div>`;
 
-  const effort = `<div class="field"><div class="flabel">Effort (optional)</div>
+  const effort = `<div class="field"><div class="flabel">Effort</div>
     <div class="hint" style="margin:0 0 8px">Sets the session's RPE — drives the intensity-mismatch and warm-up guardrails.</div>
     <div class="row3">${EFFORT.map(e=>
-      `<button class="effortchip ${f.effort===e.key?"on":""}" data-effort="${e.key}">${e.label}<span class="rpe">RPE ${e.rpe}</span></button>`).join("")}</div></div>`;
+      `<button class="chip ${f.effort===e.key?"on":""}" data-effort="${e.key}">${e.label}<span class="sub">RPE ${e.rpe}</span></button>`).join("")}</div></div>`;
 
-  const readiness = `<div class="field"><div class="flabel">Readiness (optional)</div>
+  const readiness = `<div class="field"><div class="flabel">Readiness</div>
     <div class="row3" style="margin-bottom:8px">${Object.entries(SLEEP).map(([k,x])=>{
       const on=f.sleep===k;
       return `<button class="chip" data-sleep="${k}"
@@ -962,13 +979,20 @@ function renderLog(){
         <span class="dot" style="background:${x.dot}"></span>${x.label}</button>`;
     }).join("")}</div></div>`;
 
-  const notes = `<div class="field"><div class="flabel">Notes (optional)</div>
+  const notes = `<div class="field"><div class="flabel">Notes</div>
     <textarea class="notes" id="notes" rows="2" placeholder="beta, conditions, how it felt…">${esc(f.notes)}</textarea></div>`;
+
+  const moreOpen=ui.logMoreOpen;
+  const moreToggle=`<div class="hint" style="margin:0 0 16px"><span id="logMoreToggle" style="text-decoration:underline;cursor:pointer;color:var(--accent)">${moreOpen?"Hide extra details":"+ More details — effort, readiness, notes"}</span></div>`;
+  const moreBody = moreOpen ? `${effort}${readiness}${notes}` : "";
 
   const ok=valid();
   const editing=!!ui.editingId;
+  const needsGrade = f.type==="climb" && !ok;
   const saveBtn=`<button class="save ${ui.flash?"flash":ok?"ready":""}" id="save">
     ${ui.flash?I.check+(editing?"Updated":"Logged"):(editing?"Update session":"Save session")}</button>
+    ${ui.flash?`<div class="hint" style="text-align:center;margin-top:8px;color:var(--good)">Saved to your log</div>`:""}
+    ${needsGrade&&!ui.flash?`<div class="hint" style="text-align:center;margin-top:8px">Tap a grade above to log a send or attempt</div>`:""}
     ${editing?`<div class="hint" style="text-align:center;margin-top:10px"><span id="cancelEdit" style="text-decoration:underline;cursor:pointer">Cancel edit</span></div>`:""}`;
 
   const matchSlot=findMatchingSlot(f);
@@ -977,9 +1001,8 @@ function renderLog(){
   const highIntensity = (matchSlot?.targetRpe??0)>=8 || (f.type==="hang"&&f.protocol==="max") || f.effort==="hard" || f.effort==="max";
   const warmup = highIntensity ? `<div class="field">
       <div style="background:#22303A;border-radius:12px;padding:12px 14px;">
-        <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">Warm-up required</div>
-        <div class="hint" style="line-height:1.5">10-15min easy climbing. Load ramp: 50%→70%→90% before first attempt.</div>
-        <button class="effortchip ${f.warmedUp?"on":""}" data-warmedup="1" style="margin-top:10px;width:100%">${f.warmedUp?I.check+"Warmed up":"Mark as warmed up"}</button>
+        <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">Warm up first</div>
+        <div class="hint" style="line-height:1.5">10-15min easy climbing. Load ramp: 50%→70%→90% before your first hard attempt.</div>
       </div></div>` : "";
 
   const info=matchSlot?resolveSlotText(matchSlot):null;
@@ -987,6 +1010,9 @@ function renderLog(){
       <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">${esc(info.label)} — ${esc(currentProgress().phase.name)}</div>
       <div class="hint" style="line-height:1.5">${esc(info.full||info.detail||"")}</div>
     </div></div>`:"";
+
+  const lastOfType = !editing ? [...store.sessions].filter(s=>s.type===f.type).sort((a,b)=>a.date<b.date?1:-1)[0] : null;
+  const copyLast = lastOfType ? `<div class="hint" style="margin:0 0 14px"><span id="copyLast" style="text-decoration:underline;cursor:pointer;color:var(--accent)">Copy last ${f.type} session's numbers</span></div>` : "";
 
   return errBanner()+`
     ${editing?`<div class="hint" style="margin-bottom:10px">Editing: save will overwrite this session.</div>`:""}
@@ -998,8 +1024,9 @@ function renderLog(){
     <div class="daterow">
       <input type="date" id="date" value="${f.date}">
     </div>
+    ${copyLast}
     <div class="rule"></div>
-    ${infoCard}${warmup}${body}${finger}${effort}${readiness}${notes}${saveBtn}`;
+    ${infoCard}${warmup}${body}${finger}${moreToggle}${moreBody}${saveBtn}`;
 }
 
 function stepper(lab,key,val,suf){
@@ -1025,12 +1052,11 @@ function liftBlock(L,rows){
 }
 function liftSetRow(L,i,r){
   return `<div class="liftrow"><div class="name">Set ${i+1}</div>
-    <input class="numin" style="width:64px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="weight"
+    <input class="numin" style="width:72px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="weight"
       value="${r.weight??""}" placeholder="${L.bw?"+lb":"lb"}">
     <span class="x">×</span>
-    <input class="numin" style="width:56px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps"
-      value="${r.reps??""}" placeholder="reps">
-    <button class="amrap ${r.amrap?"on":""}" data-amrap-lift="${L.key}" data-amrap-idx="${i}" title="AMRAP">+</button></div>`;
+    <input class="numin" style="width:64px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps"
+      value="${r.reps??""}" placeholder="reps"></div>`;
 }
 
 /* ---- Info tab: renders TRAINING_PLAN.md in-app, fetched once and cached in memory.
@@ -1133,6 +1159,24 @@ function renderHistory(){
   }).join("")+`<div class="hint" style="text-align:center;margin-top:6px">Tap to edit</div>`;
 }
 
+/* Collapsed-by-default section wrapper — keeps the Progress tab to a "how am I doing" glance
+   by default, with the admin/detail panels a tap away instead of always on-screen. */
+function progSection(key,title,bodyHtml){
+  const open=ui.progOpen[key];
+  return `<div class="field">
+    <div class="hint"><span data-progtoggle="${key}" style="text-decoration:underline;cursor:pointer">${open?"Hide":"Show"} ${esc(title)}</span></div>
+    ${open?`<div style="margin-top:10px">${bodyHtml}</div>`:""}
+  </div>`;
+}
+function comfortableGradeNote(){
+  const computed=computeComfortableGrade(), stored=store.settings.comfortableGrade;
+  if(computed!=null && (stored==null || computed>stored)){
+    return stored!=null ? `Currently auto-tracked at V${computed} from your sends (higher than your manual V${stored}) — the manual step only raises this floor, never lowers it.`
+      : `Currently auto-tracked at V${computed} from your sends — the manual step only raises this floor, never lowers it.`;
+  }
+  if(stored!=null) return `Currently set from your manual override (V${stored}) — auto-tracking will take over once you log 3+ sends at a higher grade.`;
+  return `No send history or manual value yet — falling back to target grade − 4.`;
+}
 function renderProgress(){
   const s=store.sessions;
   const cutoff=dayDiff(todayStr(),"1970-01-01")-7;
@@ -1144,16 +1188,7 @@ function renderProgress(){
   const hv = hardest>=0?`V${hardest}`:"—";
   const hc = hardest>=0?GRADE_COLORS[hardest]:"var(--ink)";
 
-  return errBanner()+`
-    <div class="cur"><div class="lab">Current</div>
-      <div class="big"><span class="wknum">${wknum}</span><span class="phase">${cur.phase.name}</span></div></div>
-    <div class="statgrid">
-      ${stat("Sessions",s.length)}
-      ${stat("Last 7 days",last7d)}
-      ${stat("Climbs logged",climbs)}
-      ${stat("Hardest send",hv,hc)}
-    </div>
-    <div class="field"><div class="flabel">Target grade</div>
+  const targetsBody=`
       <div class="stepper"><span class="lab">Goal</span>
         <div class="ctl">
           <button class="stepbtn" data-tstep="-1">${I.minus}</button>
@@ -1166,17 +1201,14 @@ function renderProgress(){
           <span class="val">V${effectiveComfortableGrade()}</span>
           <button class="stepbtn" data-cstep="1">${I.plus}</button>
         </div></div>
-      <div class="hint" style="margin-top:8px">Drives grade/load targets. Auto-updates on 3+ sends at higher grade.</div>
-    </div>
-    ${renderGradeChart()}
-    ${renderRecoveryTrends()}
-    ${renderStrengthTrends()}
-    ${renderBenchmarks()}
+      <div class="hint" style="margin-top:8px">${esc(comfortableGradeNote())}</div>`;
+
+  const dataBody=`
     <button class="btn2 ${ui.copied?"flash":""}" id="export">
       ${ui.copied?I.check+"Copied to clipboard":I.copy+"Export for Claude"}</button>
     <button class="btn2 ${ui.backed?"flash":""}" id="backup">
       ${ui.backed?I.check+"Backup downloaded":I.down+"Back up data (JSON)"}</button>
-    <button class="btn2" id="restore">${I.up}Restore from backup</button>
+    <button class="btn2 danger" id="restore">${I.up}Restore from backup</button>
     ${ui.pendingImport?`<div style="background:#22303A;border-radius:12px;padding:14px;margin-bottom:10px;">
       <div style="font-size:13px;color:var(--ink);margin-bottom:10px">Restore ${ui.pendingImport.count} sessions? This replaces what's currently on this device.${ui.pendingImport.skipped?` (${ui.pendingImport.skipped} skipped: invalid format)`:""}</div>
       <div style="display:flex;gap:8px">
@@ -1193,10 +1225,26 @@ function renderProgress(){
       ${ui.rawEditError?`<div class="hint" style="color:var(--tweaky);margin-top:6px">${esc(ui.rawEditError)}</div>`:""}
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn2" id="rawCancel" style="margin:0;flex:1">Cancel</button>
-        <button class="btn2 ${ui.rawEditSaved?"flash":""}" id="rawApply" style="margin:0;flex:1;background:var(--good);color:#0E1418;border-color:var(--good)">${ui.rawEditSaved?I.check+(typeof ui.rawEditSaved==="string"?ui.rawEditSaved:"Applied"):"Apply"}</button>
+        <button class="btn2 danger ${ui.rawEditSaved?"flash":""}" id="rawApply" style="margin:0;flex:1">${ui.rawEditSaved?I.check+(typeof ui.rawEditSaved==="string"?ui.rawEditSaved:"Applied"):"Apply"}</button>
       </div>
     </div>`:""}
     <div class="note">Export: CSV to clipboard. Backup: full JSON to Files. Raw data editor: quick fixes without a file. Data is local-only.</div>`;
+
+  return errBanner()+`
+    <div class="cur"><div class="lab">Current</div>
+      <div class="big"><span class="wknum">${wknum}</span><span class="phase">${cur.phase.name}</span></div></div>
+    <div class="statgrid">
+      ${stat("Sessions",s.length)}
+      ${stat("Last 7 days",last7d)}
+      ${stat("Climbs logged",climbs)}
+      ${stat("Hardest send",hv,hc)}
+    </div>
+    ${renderGradeChart()}
+    ${progSection("targets","target & comfortable grade",targetsBody)}
+    ${progSection("benchmarks","benchmarks",renderBenchmarks())}
+    ${progSection("recovery","recovery signals",renderRecoveryTrends()||`<div class="hint">Log finger status / sleep / soreness on a few sessions to see trends here.</div>`)}
+    ${progSection("strength","strength trends",renderStrengthTrends()||`<div class="hint">Log a few hang or lift sessions to see trends here.</div>`)}
+    ${progSection("data","data management (export, backup, restore, raw edit)",dataBody)}`;
 }
 
 /* ---- small inline charts (no deps) ---- */
@@ -1286,8 +1334,7 @@ function renderBenchmarks(){
   const bw=store.settings.bodyweight;
   const hang=latestBenchmark("hang"), pull=latestBenchmark("pull");
   const ratio=(v)=> bw&&v!=null ? Math.round((v/bw)*100)+"%" : "—";
-  return `<div class="field"><div class="flabel">Benchmarks</div>
-    <div class="stack" style="margin-bottom:10px">
+  return `<div class="stack" style="margin-bottom:10px">
       <div class="stepper"><span class="lab">Bodyweight (lb)</span>
         <div class="ctl">${sparkline(benchTrend("bodyweight"))}<input class="numin" id="bw" style="width:70px" inputmode="decimal" value="${bw??""}" placeholder="lb"></div></div>
       <div class="stepper"><span class="lab">Max hang add (20mm,10s)</span>
@@ -1300,8 +1347,7 @@ function renderBenchmarks(){
     </div>
     <div class="hint">Targets (%BW): hang V3-4 ${BENCH_TARGETS.hang[0][1]} · V6 ${BENCH_TARGETS.hang[1][1]} · V8 ${BENCH_TARGETS.hang[2][1]}. Pull-up V3-4 ${BENCH_TARGETS.pull[0][1]} · V6 ${BENCH_TARGETS.pull[1][1]} · V8 ${BENCH_TARGETS.pull[2][1]}.</div>
     ${(store.benchmarks||[]).length?`<button class="btn2" id="benchHistToggle" style="margin:10px 0 0">${ui.benchHistoryOpen?"Hide history":"Show history"}</button>`:""}
-    ${ui.benchHistoryOpen?renderBenchmarkList():""}
-  </div>`;
+    ${ui.benchHistoryOpen?renderBenchmarkList():""}`;
 }
 function renderBenchmarkList(){
   const list=[...(store.benchmarks||[])].sort((a,b)=>a.date<b.date?1:-1).slice(0,10);
@@ -1329,11 +1375,9 @@ function renderRecoveryTrends(){
   const sleepColors={poor:"var(--pain)",ok:"var(--tweaky)",good:"var(--good)"};
   const sorenessColors={fresh:"var(--good)",tired:"var(--tweaky)",sore:"var(--pain)"};
   const row=(label,items,map,key)=> items.length ? `<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">${label} · oldest→newest</div>${dotStrip(items.map(s=>s[key]),map)}</div>` : "";
-  return `<div class="field"><div class="flabel">Recovery signals</div>
-    ${row("Finger status",withFinger,fingerColors,"finger")}
+  return `${row("Finger status",withFinger,fingerColors,"finger")}
     ${row("Sleep",withSleep,sleepColors,"sleep")}
-    ${row("Soreness",withSoreness,sorenessColors,"soreness")}
-  </div>`;
+    ${row("Soreness",withSoreness,sorenessColors,"soreness")}`;
 }
 function rpeTrend(){ return [...store.sessions].filter(s=>s.rpe!=null).sort((a,b)=>a.date<b.date?-1:1).map(s=>s.rpe); }
 function liftTrend(key){
@@ -1341,8 +1385,9 @@ function liftTrend(key){
     .sort((a,b)=>a.date<b.date?-1:1)
     .map(s=>Math.max(...s.lift.entries[key].map(r=>Number(r.weight)||0)));
 }
-function hangTrend(protocol){
-  return [...store.sessions].filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol)
+function hangTrend(protocol,grip){
+  grip = grip || latestGripFor(protocol);
+  return [...store.sessions].filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol&&(s.hang.grip||"half")===grip)
     .sort((a,b)=>a.date<b.date?-1:1).map(s=>s.hang.addedLb??0);
 }
 function renderStrengthTrends(){
@@ -1353,11 +1398,12 @@ function renderStrengthTrends(){
     const t=liftTrend(L.key);
     if(t.length>=2) parts.push(`<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">${esc(L.name)} top set</div>${sparkline(t)}</div>`);
   });
-  const maxT=hangTrend("max"), repT=hangTrend("repeater");
-  if(maxT.length>=2) parts.push(`<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">Max hang load</div>${sparkline(maxT)}</div>`);
-  if(repT.length>=2) parts.push(`<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">Repeater load</div>${sparkline(repT)}</div>`);
+  const maxGrip=latestGripFor("max"), repGrip=latestGripFor("repeater");
+  const maxT=hangTrend("max",maxGrip), repT=hangTrend("repeater",repGrip);
+  if(maxT.length>=2) parts.push(`<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">Max hang load (${maxGrip==="open"?"open hand":"half-crimp"})</div>${sparkline(maxT)}</div>`);
+  if(repT.length>=2) parts.push(`<div style="margin-bottom:10px"><div class="hint" style="margin-bottom:4px">Repeater load (${repGrip==="open"?"open hand":"half-crimp"})</div>${sparkline(repT)}</div>`);
   if(!parts.length) return "";
-  return `<div class="field"><div class="flabel">Strength trends</div>${parts.join("")}</div>`;
+  return parts.join("");
 }
 function stat(lab,v,color){
   return `<div class="stat"><div class="lab">${lab}</div>
@@ -1382,7 +1428,7 @@ function loadSessionIntoForm(sess){
   const f=blankForm();
   f.type=sess.type; f.date=sess.date; f.notes=sess.notes||"";
   f.finger=sess.finger||null;
-  f.sleep=sess.sleep||null; f.soreness=sess.soreness||null; f.warmedUp=!!sess.warmedUp;
+  f.sleep=sess.sleep||null; f.soreness=sess.soreness||null;
   f.effort=EFFORT.find(e=>e.rpe===sess.rpe)?.key || null;
   if(sess.type==="climb"){ f.grades=[...(sess.grades||[])]; f.attempts={...(sess.attempts||{})}; }
   if(sess.type==="hang"){
@@ -1393,7 +1439,7 @@ function loadSessionIntoForm(sess){
     const saved=(sess.lift||{}).entries||{};
     LIFT_DAY.forEach(L=>{
       const rows=saved[L.key]||[];
-      f.entries[L.key]=Array.from({length:L.sets},(_,i)=>rows[i]?{weight:rows[i].weight,reps:rows[i].reps,amrap:!!rows[i].amrap}:{weight:"",reps:"",amrap:false});
+      f.entries[L.key]=Array.from({length:L.sets},(_,i)=>rows[i]?{weight:rows[i].weight,reps:rows[i].reps}:{weight:"",reps:""});
     });
   }
   return f;
@@ -1406,7 +1452,6 @@ function commitSave(){
   if(f.finger) s.finger=f.finger;
   if(f.sleep) s.sleep=f.sleep;
   if(f.soreness) s.soreness=f.soreness;
-  if(f.warmedUp) s.warmedUp=true;
   if(f.type==="climb"){
     s.grades=[...f.grades];
     const att=Object.fromEntries(Object.entries(f.attempts||{}).filter(([,v])=>v>0));
@@ -1417,7 +1462,7 @@ function commitSave(){
     const entries={};
     LIFT_DAY.forEach(L=>{
       const rows=(f.entries[L.key]||[]).filter(r=>(r.weight??"")!=="");
-      if(rows.length) entries[L.key]=rows.map(r=>({weight:r.weight,reps:r.reps??"",amrap:!!r.amrap}));
+      if(rows.length) entries[L.key]=rows.map(r=>({weight:r.weight,reps:r.reps??""}));
     });
     s.lift={entries};
   }
@@ -1438,15 +1483,16 @@ function commitSave(){
   const keepType=f.type, keepDate=f.date;
   ui.editingId=null;
   ui.form=freshForm(keepType); ui.form.date=keepDate;
+  ui.gradeExpanded=false; ui.logMoreOpen=false;
   ui.flash=true; render();
-  setTimeout(()=>{ ui.flash=false; render(); },1400);
+  setTimeout(()=>{ ui.flash=false; render(); },2000);
 }
 
 function wire(){
   // nav
   $nav.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{
     const t=b.dataset.tab;
-    if(t==="log" && ui.editingId){ ui.editingId=null; ui.form=freshForm(); }
+    if(t==="log" && ui.editingId){ ui.editingId=null; ui.form=freshForm(); ui.gradeExpanded=false; ui.logMoreOpen=false; }
     if(t!=="plan") ui.progressUndo=null;
     ui.tab=t; render();
   });
@@ -1455,8 +1501,11 @@ function wire(){
   $main.querySelectorAll("[data-seg]").forEach(seg=>{
     seg.querySelectorAll("button").forEach(b=>b.onclick=()=>{
       const key=seg.dataset.seg, val=b.dataset.val;
-      if(key==="type"){ ui.form.type=val; if(!ui.editingId) applySuggestions(ui.form); }
-      else { ui.form[key]=val; if(key==="protocol" && !ui.editingId) ui.form.addedLb=suggestHangLoad(val); }
+      if(key==="type"){ ui.form.type=val; ui.gradeExpanded=false; if(!ui.editingId) applySuggestions(ui.form); }
+      else {
+        ui.form[key]=val;
+        if((key==="protocol"||key==="grip") && !ui.editingId) ui.form.addedLb=suggestHangLoad(ui.form.protocol,ui.form.grip);
+      }
       render();
     });
   });
@@ -1488,11 +1537,6 @@ function wire(){
       updateSaveBtn();
     };
   });
-  $main.querySelectorAll("[data-amrap-lift]").forEach(b=>b.onclick=()=>{
-    const k=b.dataset.amrapLift, idx=+b.dataset.amrapIdx;
-    const arr=[...(ui.form.entries[k]||[])]; arr[idx]={...arr[idx],amrap:!arr[idx]?.amrap};
-    ui.form.entries[k]=arr; render();
-  });
   // finger / effort
   $main.querySelectorAll("[data-finger]").forEach(b=>b.onclick=()=>{ ui.form.finger=b.dataset.finger; render(); });
   $main.querySelectorAll("[data-effort]").forEach(b=>b.onclick=()=>{
@@ -1501,12 +1545,20 @@ function wire(){
     const v=b.dataset.sleep; ui.form.sleep=ui.form.sleep===v?null:v; render(); });
   $main.querySelectorAll("[data-soreness]").forEach(b=>b.onclick=()=>{
     const v=b.dataset.soreness; ui.form.soreness=ui.form.soreness===v?null:v; render(); });
-  const wu=$main.querySelector("[data-warmedup]"); if(wu) wu.onclick=()=>{ ui.form.warmedUp=!ui.form.warmedUp; render(); };
   // notes (no re-render)
   const nt=$main.querySelector("#notes"); if(nt) nt.oninput=e=>{ ui.form.notes=e.target.value; saveDraft(); };
+  // grade card range / optional-details disclosures
+  const get=$main.querySelector("#gradeExpandToggle"); if(get) get.onclick=()=>{ ui.gradeExpanded=!ui.gradeExpanded; render(); };
+  const lmt=$main.querySelector("#logMoreToggle"); if(lmt) lmt.onclick=()=>{ ui.logMoreOpen=!ui.logMoreOpen; render(); };
+  const cl=$main.querySelector("#copyLast"); if(cl) cl.onclick=()=>{
+    const f=ui.form, last=[...store.sessions].filter(s=>s.type===f.type).sort((a,b)=>a.date<b.date?1:-1)[0];
+    if(!last) return;
+    const loaded=loadSessionIntoForm(last); loaded.date=todayStr();
+    ui.form=loaded; ui.gradeExpanded=false; render();
+  };
   // save
   const sv=$main.querySelector("#save"); if(sv) sv.onclick=commitSave;
-  const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=freshForm(); render(); };
+  const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=freshForm(); ui.gradeExpanded=false; ui.logMoreOpen=false; render(); };
   // history delete — two-tap confirm (iOS standalone PWAs suppress window.confirm)
   $main.querySelectorAll("[data-del]").forEach(b=>b.onclick=(e)=>{
     e.stopPropagation();
@@ -1532,16 +1584,18 @@ function wire(){
   // history card tap -> edit
   $main.querySelectorAll("[data-edit]").forEach(card=>card.onclick=()=>{
     const s=store.sessions.find(x=>x.id===card.dataset.edit); if(!s)return;
-    ui.editingId=s.id; ui.form=loadSessionIntoForm(s); ui.tab="log"; render();
+    ui.editingId=s.id; ui.form=loadSessionIntoForm(s); ui.tab="log"; ui.gradeExpanded=false; ui.logMoreOpen=false; render();
   });
   // plan tab
   const lt=$main.querySelector("#logToday"); if(lt) lt.onclick=()=>{
     const next=currentProgress().next;
     ui.editingId=null;
     ui.form=freshForm(next.type, next.protocol, next.gradeRole);
+    ui.gradeExpanded=false; ui.logMoreOpen=false;
     ui.tab="log"; render();
   };
   const ut=$main.querySelector("#upNextTap"); if(ut) ut.onclick=()=>{ ui.planDetailOpen=!ui.planDetailOpen; render(); };
+  const pst=$main.querySelector("#planSlotsToggle"); if(pst) pst.onclick=()=>{ ui.planSlotsOpen=!ui.planSlotsOpen; render(); };
   $main.querySelectorAll("[data-setslot]").forEach(row=>row.onclick=()=>{
     const i=+row.dataset.setslot, cur=currentProgress();
     setProgressUndo();
@@ -1634,6 +1688,10 @@ function wire(){
   });
   // grade chart tap
   $main.querySelectorAll("[data-chartpt]").forEach(c=>c.onclick=()=>{ ui.chartTap=+c.dataset.chartpt; render(); });
+  // progress tab section disclosures
+  $main.querySelectorAll("[data-progtoggle]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.progtoggle; ui.progOpen[k]=!ui.progOpen[k]; render();
+  });
 }
 
 function updateSaveBtn(){
