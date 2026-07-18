@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v37";
+const APP_VERSION = "v38";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -794,6 +794,22 @@ function sendsAttemptsSeries(n=10){
   return realSessions().filter(s=>s.type==="climb"&&((s.grades||[]).length||Object.values(s.attempts||{}).some(v=>v>0)))
     .sort((a,b)=>a.date<b.date?-1:1).slice(-n)
     .map(s=>({date:s.date, sends:(s.grades||[]).length, attempts:extraAttempts(s)}));
+}
+/* Grade pyramid — Anderson & Anderson's Rock Climber's Training Manual (already a cited plan
+   source): send counts per grade, all-time. A wide base narrowing toward your ceiling means
+   you have the volume to justify pushing the next grade; a spike with no base underneath
+   usually means under-logged volume rather than genuine readiness. */
+function gradePyramid(){
+  const c={}, extra={};
+  realSessions().filter(s=>s.type==="climb").forEach(s=>{
+    (s.grades||[]).forEach(g=>{ c[g]=(c[g]||0)+1; });
+    Object.entries(s.attempts||{}).forEach(([g,v])=>{
+      const sendsAtG=(s.grades||[]).filter(x=>String(x)===g).length;
+      extra[g]=(extra[g]||0)+Math.max(0,v-sendsAtG);
+    });
+  });
+  const grades=[...new Set([...Object.keys(c),...Object.keys(extra)])].map(Number).sort((a,b)=>a-b);
+  return grades.map(g=>({grade:g, sends:c[g]||0, attempts:extra[g]||0}));
 }
 function weeklyTriesSeries(weeks=12){
   const todayEpoch=dayDiff(todayStr(),"1970-01-01");
@@ -1526,6 +1542,8 @@ function renderProgress(){
       ${stat("Hardest send",hv,hc)}
     </div>
     ${renderGradeChart()}
+    ${renderGradePyramid()}
+    ${renderBenchmarkVsGrade()}
     ${progSection("targets","target & comfortable grade",targetsBody)}
     ${progSection("trends","training load & effort trends",renderTrainingTrends())}
     ${progSection("benchmarks","benchmarks",renderBenchmarks())}
@@ -1605,6 +1623,40 @@ function renderGradeChart(){
     </div></div>`;
 }
 
+/* Horizontal bar per grade — sends solid, extra (failed) attempts stacked lighter after them,
+   same visual language as renderSendsAttemptsChart. Wide base narrowing to a point near your
+   ceiling is the classic "ready to push" read; a spike with no base usually means under-logged
+   volume rather than genuine readiness (Anderson & Anderson, RCTM). */
+function renderGradePyramid(){
+  const rows=gradePyramid();
+  if(!rows.length) return `<div class="field"><div class="flabel">Grade pyramid</div>
+    <div class="stack"><div class="hint">Log sends or attempts by grade to see your pyramid here.</div></div></div>`;
+  const cg=effectiveComfortableGrade();
+  const maxTotal=Math.max(1,...rows.map(r=>r.sends+r.attempts));
+  const w=300, rowH=20, gap=4, padL=26, padR=34;
+  const h=rows.length*(rowH+gap)-gap;
+  const barMaxW=w-padL-padR;
+  const bars=rows.map((r,i)=>{
+    const y=i*(rowH+gap);
+    const total=r.sends+r.attempts;
+    const sendW=(r.sends/maxTotal)*barMaxW, attW=(r.attempts/maxTotal)*barMaxW;
+    const isCg=r.grade===cg;
+    return `<g>
+      <text x="${padL-6}" y="${(y+rowH/2+3).toFixed(1)}" font-size="9" font-family="ui-monospace,monospace" font-weight="${isCg?800:600}"
+        fill="${isCg?"var(--accent)":"var(--faint)"}" text-anchor="end">V${r.grade}</text>
+      ${total?`<rect x="${padL}" y="${y}" width="${sendW.toFixed(1)}" height="${rowH}" rx="3" fill="var(--accent)"/>
+      ${attW?`<rect x="${(padL+sendW).toFixed(1)}" y="${y}" width="${attW.toFixed(1)}" height="${rowH}" rx="3" fill="var(--faint)" opacity=".5"/>`:""}
+      <text x="${(padL+sendW+attW+6).toFixed(1)}" y="${(y+rowH/2+3).toFixed(1)}" font-size="9" fill="var(--sub)">${r.sends}${r.attempts?`+${r.attempts}`:""}</text>`
+      :`<rect x="${padL}" y="${y}" width="2" height="${rowH}" fill="var(--line)"/>`}
+    </g>`;
+  }).join("");
+  return `<div class="field"><div class="flabel">Grade pyramid</div>
+    <div class="stack">
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${bars}</svg>
+      <div class="hint"><span style="color:var(--accent)">■</span> sends &nbsp; <span style="color:var(--faint)">■</span> extra attempts (no send) &nbsp;·&nbsp; <span style="color:var(--accent)">V${cg}</span> = comfortable grade</div>
+    </div></div>`;
+}
+
 /* GitHub-contribution-style grid — columns are weeks (oldest left, newest right), rows are
    days. Grade breakthroughs are rare and can be flat for weeks; this makes plain "did I show
    up" consistency visible at a glance, which the grade chart structurally can't. */
@@ -1663,8 +1715,62 @@ function latestBenchmark(metric){
   const list=(store.benchmarks||[]).filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?1:-1);
   return list[0]||null;
 }
+/* Three (grade, %BW) anchors per metric, reusing the exact numbers already used elsewhere —
+   benchmarkGateStatus's V6 gate (hang 20%/pull 30%) and BENCH_TARGETS' V8 low-bounds (40%/50%)
+   — rather than inventing new thresholds. Piecewise-linear interpolation/extrapolation between
+   them estimates the grade your current strength ratio predicts (Lattice/Bechtel norms). */
+const BENCH_ANCHORS = { hang:[[3.5,0],[6,20],[8,40]], pull:[[3.5,10],[6,30],[8,50]] };
+function benchmarkGradeEstimate(pct,anchors){
+  if(pct==null) return null;
+  for(let i=0;i<anchors.length-1;i++){
+    const [g0,p0]=anchors[i], [g1,p1]=anchors[i+1];
+    if(pct<=p1 || i===anchors.length-2){
+      const slope=(g1-g0)/(p1-p0);
+      return Math.max(0, g0+(pct-p0)*slope);
+    }
+  }
+  return null;
+}
 function benchTrend(metric){
   return [...(store.benchmarks||[])].filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?-1:1).map(b=>b.value);
+}
+/* Visualizes the same %BW-vs-grade norms renderBenchmarks() shows as static text, as two
+   gauges you can actually read your position on, with your comfortable grade marked alongside
+   so a gap between "what your strength predicts" and "what you've actually sent" is visible —
+   the two independent grade predictors this app's own literature review (Saul et al. 2019)
+   calls out. */
+function renderBenchmarkVsGrade(){
+  const bw=store.settings.bodyweight;
+  const hang=latestBenchmark("hang"), pull=latestBenchmark("pull");
+  if(!bw || (!hang && !pull)) return `<div class="field"><div class="flabel">Strength vs. grade</div>
+    <div class="stack"><div class="hint">Log bodyweight and a max hang or pull-up benchmark (below, in Benchmarks) to see this.</div></div></div>`;
+  const cg=effectiveComfortableGrade();
+  const w=300, padL=8, padR=8, trackH=10, gMin=2, gMax=10, blockH=44;
+  const trackW=w-padL-padR;
+  const x=g=> padL + ((Math.min(gMax,Math.max(gMin,g))-gMin)/(gMax-gMin))*trackW;
+  const gauge=(label,val,color,anchors,top)=>{
+    const trackY=top+14;
+    const pct = val!=null ? (val/bw)*100 : null;
+    const est = pct!=null ? benchmarkGradeEstimate(pct,anchors) : null;
+    const ticks=anchors.map(([g])=>`<line x1="${x(g).toFixed(1)}" x2="${x(g).toFixed(1)}" y1="${trackY-3}" y2="${trackY+trackH+3}" stroke="var(--line)" stroke-width="1"/>
+      <text x="${x(g).toFixed(1)}" y="${trackY+trackH+13}" font-size="8" fill="var(--faint)" text-anchor="middle">V${g}</text>`).join("");
+    const track=`<rect x="${x(gMin).toFixed(1)}" y="${trackY}" width="${trackW.toFixed(1)}" height="${trackH}" rx="${trackH/2}" fill="var(--panel2)"/>`;
+    const fillW=est!=null?(x(est)-x(gMin)):0;
+    const fill=est!=null?`<rect x="${x(gMin).toFixed(1)}" y="${trackY}" width="${fillW.toFixed(1)}" height="${trackH}" rx="${trackH/2}" fill="${color}"/>`:"";
+    const marker=est!=null?`<circle cx="${x(est).toFixed(1)}" cy="${trackY+trackH/2}" r="5" fill="${color}" stroke="var(--bg)" stroke-width="1.5"/>`:"";
+    const cgLine=`<line x1="${x(cg).toFixed(1)}" x2="${x(cg).toFixed(1)}" y1="${trackY-6}" y2="${trackY+trackH+6}" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="2,2"/>`;
+    const labelText = val!=null ? `${label} — ${pct.toFixed(0)}% BW → ~V${est.toFixed(1)}` : `${label} — no data yet`;
+    return `<text x="${padL}" y="${top+8}" font-size="10" font-weight="700" fill="var(--ink)">${esc(labelText)}</text>
+      ${track}${fill}${ticks}${marker}${cgLine}`;
+  };
+  const h=blockH*2+16;
+  const rows=gauge("Max hang (20mm, 10s)", hang?.value, "var(--tweaky)", BENCH_ANCHORS.hang, 4)
+    + gauge("Weighted pull-up", pull?.value, "var(--good)", BENCH_ANCHORS.pull, blockH+16);
+  return `<div class="field"><div class="flabel">Strength vs. grade</div>
+    <div class="stack">
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${rows}</svg>
+      <div class="hint">Dashed line = your comfortable grade (V${cg}). A gap between it and a strength marker points at which one's the current limiter.</div>
+    </div></div>`;
 }
 function renderBenchmarks(){
   const bw=store.settings.bodyweight;
