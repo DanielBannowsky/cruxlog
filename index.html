@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v31";
+const APP_VERSION = "v32";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -765,13 +765,9 @@ function heatmapData(weeks=18){
     (typesByDay[s.date]=typesByDay[s.date]||new Set()).add(s.type);
     if(s.type==="climb" && s.rpe>=9) hardClimbDays[s.date]=true;
   });
-  const todayEpoch=dayDiff(todayStr(),"1970-01-01");
   const out=[];
   for(let i=days-1;i>=0;i--){
-    const epoch=todayEpoch-i;
-    // reconstruct a date string from epoch days since 1970-01-01
-    const d=new Date(epoch*86400000);
-    const date=`${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;
+    const date=dateFromDaysAgo(i);
     const types=typesByDay[date] ? [...typesByDay[date]].sort() : [];
     out.push({date, types, hardClimb:!!hardClimbDays[date]});
   }
@@ -794,14 +790,11 @@ function weeklyTriesSeries(weeks=12){
   return out;
 }
 function acwrSeries(weeks=12){
-  const todayEpoch=dayDiff(todayStr(),"1970-01-01");
   const out=[];
   for(let w=weeks-1;w>=0;w--){
-    const end=todayEpoch-w*7;
-    const d=new Date(end*86400000);
-    const dateStr=`${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;
+    const dateStr=dateFromDaysAgo(w*7);
     const {acuteTries,chronicTriesWeekly}=triesLoadAt(dateStr);
-    out.push({weekEnd:end, ratio: chronicTriesWeekly>0 ? acuteTries/chronicTriesWeekly : null});
+    out.push({weekEnd:dayDiff(dateStr,"1970-01-01"), ratio: chronicTriesWeekly>0 ? acuteTries/chronicTriesWeekly : null});
   }
   return out;
 }
@@ -833,6 +826,15 @@ const I = {
 const pad = n => String(n).padStart(2,"0");
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const dayDiff = (a,b) => Math.floor((new Date(a+"T12:00:00")-new Date(b+"T12:00:00"))/86400000);
+/* Local calendar date N days ago (0 = today), via setDate rather than an epoch-ms round trip —
+   dayDiff(x,"1970-01-01") then reconstructing a date from that epoch via new Date(ms) breaks
+   across a DST boundary, since 1970-01-01 (standard time) and "today" can be in different UTC
+   offsets, silently shifting the reconstructed date by a day. setDate() stays in local calendar
+   arithmetic throughout, so it's immune to that. */
+function dateFromDaysAgo(n){
+  const d=new Date(); d.setDate(d.getDate()-n);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
 const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function prettyDate(s){ return new Date(s+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}); }
@@ -1036,9 +1038,15 @@ function renderPlan(){
   const insight=sessionInsight(next);
   const mobilityDoneToday=store.sessions.some(s=>s.type==="mobility"&&s.date===todayStr());
   const mobilityRow=`<div class="field">
-    <div class="hint" style="display:flex;align-items:center;justify-content:space-between">
-      <span style="color:${mobilityDoneToday?"var(--mobility)":"var(--faint)"}">${mobilityDoneToday?"✓ Mobility done today":"10-min daily mobility not logged yet"}</span>
-      ${mobilityDoneToday?"":`<span id="logMobility" style="text-decoration:underline;cursor:pointer;color:var(--accent)">Log</span>`}
+    <div class="liftrow" id="mobilityCard" style="cursor:pointer;
+      border:1px solid ${mobilityDoneToday?"var(--mobility)":"var(--line)"};
+      background:${mobilityDoneToday?"rgba(139,127,209,.10)":"var(--panel)"}">
+      <span class="hicon" style="color:var(--mobility)">${I.mobility}</span>
+      <span style="flex:1">
+        <div style="font-weight:800;font-size:14px;color:var(--ink)">${mobilityDoneToday?"Mobility done today":"10-min daily mobility"}</div>
+        ${mobilityDoneToday?"":`<div class="hint" style="margin:2px 0 0">Not logged yet — tap to start</div>`}
+      </span>
+      <span style="color:${mobilityDoneToday?"var(--mobility)":"var(--faint)"};display:flex">${mobilityDoneToday?I.check:I.chev}</span>
     </div>
   </div>`;
 
@@ -1999,7 +2007,7 @@ function wire(){
     ui.gradeExpanded=false; ui.logMoreOpen=false;
     ui.tab="log"; render();
   };
-  const lm=$main.querySelector("#logMobility"); if(lm) lm.onclick=()=>{
+  const lm=$main.querySelector("#mobilityCard"); if(lm) lm.onclick=()=>{
     ui.editingId=null;
     ui.form=freshForm("mobility");
     ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
@@ -2127,30 +2135,26 @@ function updateSaveBtn(){
    tagged {seed:true} so it can be bulk-removed later without touching real data, and
    is pushed directly to store.sessions (not through commitSave), so it never advances
    the plan's phase/slot pointer. */
-function testDate(daysAgo){
-  const d=new Date(); d.setDate(d.getDate()-daysAgo);
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-}
 function generateTestSessions(){
   const out=[];
   let grade=3;
   for(let w=0; w<4; w++){
     const base=w*7;
-    out.push({id:uid(), seed:true, date:testDate(base+1), type:"climb",
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+1), type:"climb",
       grades:[grade,grade,Math.max(0,grade-1)], attempts:{[grade+1]:3}, rpe:6, finger:"good", notes:""});
-    out.push({id:uid(), seed:true, date:testDate(base+3), type:"hang",
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+3), type:"hang",
       hang:{protocol:w%2===0?"repeater":"max", edge:20, addedLb:w*5, sets:5, grip:"half"},
       rpe:w%2===0?6:9, finger:"good", notes:""});
-    out.push({id:uid(), seed:true, date:testDate(base+4), type:"lift",
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+4), type:"lift",
       lift:{entries:Object.fromEntries(LIFT_DAY.map(L=>[L.key,[{weight:String(10+w*5),reps:L.repTarget.split("-")[0]}]]))},
       rpe:6, finger:"good", notes:""});
-    out.push({id:uid(), seed:true, date:testDate(base+5), type:"climb",
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+5), type:"climb",
       grades:[grade+1], attempts:{[grade+2]:2}, rpe:8, finger:w===2?"tweaky":"good", notes:""});
     // same day as the first climb this week — exercises the heatmap's diagonal split
-    out.push({id:uid(), seed:true, date:testDate(base+1), type:"mobility",
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+1), type:"mobility",
       mobility:{done:["wrist","shoulder"]}, notes:""});
     // a standalone mobility-only day
-    out.push({id:uid(), seed:true, date:testDate(base+6), type:"mobility",
+    out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+6), type:"mobility",
       mobility:{done:["tspine","hip","ankle","neck"]}, notes:""});
     grade++;
   }
