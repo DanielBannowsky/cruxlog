@@ -137,7 +137,6 @@
   .hhead .del svg{width:14px; height:14px; flex-shrink:0;}
   .hhead .del.confirm{background:rgba(217,80,63,.15); border-color:var(--pain); color:var(--pain);}
   .hdetail{font-family:ui-monospace,monospace; font-size:14px; color:var(--ink); letter-spacing:-.2px;}
-  .hnotes{color:var(--sub); font-size:13px; margin-top:6px;}
   .hicon{color:var(--accent); display:flex;}
   .hicon svg{width:16px; height:16px;}
 
@@ -215,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v36";
+const APP_VERSION = "v37";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -357,13 +356,18 @@ const WEEKLY_TEMPLATES = {
 };
 function slotsOf(phaseKey){ return WEEKLY_TEMPLATES[phaseKey]||WEEKLY_TEMPLATES.strength; }
 
+/* Sessions from "Load sample data" (Progress > data management) are tagged {seed:true} so
+   they never feed real stats/guardrails/streaks — only the heatmap and History list show
+   them, since those are what that feature is for previewing. */
+function realSessions(){ return store.sessions.filter(s=>!s.seed); }
+
 /* ---- dynamic grade prescription ----
    "Comfortable grade" is the highest grade with 3+ logged sends — a real, evidence-based
    floor rather than a guess, and it ratchets up automatically as you log more climbs.
    Falls back to (targetGrade - 4) only when there's no send history yet to compute it. */
 function computeComfortableGrade(){
   const counts={};
-  store.sessions.forEach(s=>{ if(s.type==="climb") (s.grades||[]).forEach(g=>{ counts[g]=(counts[g]||0)+1; }); });
+  realSessions().forEach(s=>{ if(s.type==="climb") (s.grades||[]).forEach(g=>{ counts[g]=(counts[g]||0)+1; }); });
   let best=null;
   for(let g=0; g<=16; g++){ if((counts[g]||0)>=3) best=g; }
   return best;
@@ -376,7 +380,7 @@ function effectiveComfortableGrade(){
   const stored=store.settings.comfortableGrade;
   const computed=computeComfortableGrade();
   let cg = (computed!=null && (stored==null || computed>stored)) ? computed : (stored ?? Math.max(0,(store.settings.targetGrade??8)-4));
-  const lastClimb=[...store.sessions].filter(s=>s.type==="climb").sort((a,b)=>a.date<b.date?1:-1)[0];
+  const lastClimb=realSessions().filter(s=>s.type==="climb").sort((a,b)=>a.date<b.date?1:-1)[0];
   if(lastClimb){
     const gapDays=dayDiff(todayStr(),lastClimb.date);
     if(gapDays>21){
@@ -427,12 +431,12 @@ function loadText(lb){ return lb>0?`+${lb}lb`:lb<0?`${lb}lb`:"bodyweight"; }
    recently logged for this protocol, so load suggestions/trends aren't averaging apples
    and oranges. */
 function latestGripFor(protocol){
-  const s=[...store.sessions].filter(x=>x.type==="hang"&&x.hang&&x.hang.protocol===protocol).sort((a,b)=>a.date<b.date?1:-1)[0];
+  const s=realSessions().filter(x=>x.type==="hang"&&x.hang&&x.hang.protocol===protocol).sort((a,b)=>a.date<b.date?1:-1)[0];
   return s?.hang?.grip || "half";
 }
 function suggestHangLoad(protocol,grip){
   grip = grip || latestGripFor(protocol);
-  const hist=[...store.sessions].filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol&&(s.hang.grip||"half")===grip).sort((a,b)=>a.date<b.date?1:-1);
+  const hist=realSessions().filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol&&(s.hang.grip||"half")===grip).sort((a,b)=>a.date<b.date?1:-1);
   const cur=currentProgress();
   if(!hist.length){
     if(protocol==="max"){ const bench=latestBenchmark("hang"); return bench?Math.round(bench.value):0; }
@@ -447,7 +451,7 @@ function suggestHangLoad(protocol,grip){
 }
 const PROGRESSABLE_LIFTS = new Set(["pullup","ohp","squat"]); // per plan doc — the other 3 are prehab/maintenance, not progressive-overload targets
 function suggestLiftWeight(key){
-  const hist=[...store.sessions].filter(s=>s.type==="lift"&&s.lift&&s.lift.entries&&s.lift.entries[key]&&s.lift.entries[key].length)
+  const hist=realSessions().filter(s=>s.type==="lift"&&s.lift&&s.lift.entries&&s.lift.entries[key]&&s.lift.entries[key].length)
     .sort((a,b)=>a.date<b.date?1:-1);
   if(!hist.length) return null;
   const rows=hist[0].lift.entries[key];
@@ -479,7 +483,7 @@ function benchmarkGateStatus(phaseKey){
   }
   if(phaseKey==="power"){
     const target=store.settings.targetGrade??8;
-    let hardest=-1; store.sessions.forEach(s=>(s.grades||[]).forEach(g=>{ if(g>hardest) hardest=g; }));
+    let hardest=-1; realSessions().forEach(s=>(s.grades||[]).forEach(g=>{ if(g>hardest) hardest=g; }));
     return {applies:true, met: hardest>=target-3,
       text:`Exit target: a send of V${Math.max(0,target-3)}+ this phase (hardest so far: ${hardest>=0?"V"+hardest:"none yet"}).`};
   }
@@ -527,7 +531,7 @@ function advanceProgress(){
 const FINGER_INTENSITY_TYPES = s => s.type==="hang" || (s.type==="climb" && (s.rpe>=9));
 function computeGuardrails(store){
   const out=[];
-  const sessions=[...store.sessions].sort((a,b)=>a.date<b.date?1:-1);
+  const sessions=store.sessions.filter(s=>!s.seed).sort((a,b)=>a.date<b.date?1:-1);
   const fingerSessions=sessions.filter(FINGER_INTENSITY_TYPES);
 
   // Scan all adjacent pairs in recent finger-intensity history, not just the single most recent —
@@ -659,28 +663,42 @@ function sessionInsight(next){
   }
   return null;
 }
+/* A send counts as a try too (bumpGrade keeps attempts[g] in sync with sends as you log),
+   so per-grade total tries is max(sends at g, attempts at g) rather than a raw sum — that
+   also stays sane against older sessions logged before attempts tracked sends, where the
+   two counts were independent. */
 function climbTries(s){
   if(s.type!=="climb") return 0;
-  const sends=(s.grades||[]).length;
-  const attempts=Object.values(s.attempts||{}).reduce((a,b)=>a+b,0);
-  return sends+attempts;
+  const c=gradeCounts(s.grades);
+  const grades=new Set([...Object.keys(c), ...Object.keys(s.attempts||{})]);
+  let total=0;
+  grades.forEach(g=>{ total+=Math.max(c[g]||0, (s.attempts||{})[g]||0); });
+  return total;
+}
+/* Attempts beyond what the sends themselves already account for — what the "+N attempts"
+   detail line and sends/attempts chart show, so a send doesn't get visually double-counted
+   now that logging a send also bumps its grade's attempts count. */
+function extraAttempts(s){
+  if(s.type!=="climb") return 0;
+  const c=gradeCounts(s.grades);
+  return Object.entries(s.attempts||{}).reduce((a,[g,v])=>a+Math.max(0,v-(c[g]||0)),0);
 }
 /* Tries-based acute:chronic load, as of a given date — shared by the live guardrail check
    (asOf today) and the rolling ACWR trend chart (asOf each of the last N week-endings). */
 function triesLoadAt(dateStr){
   const asOf=dayDiff(dateStr,"1970-01-01");
-  const inWindow=(days)=> store.sessions.filter(s=>{ const d=dayDiff(s.date,"1970-01-01"); return d<=asOf && d>asOf-days; });
+  const inWindow=(days)=> realSessions().filter(s=>{ const d=dayDiff(s.date,"1970-01-01"); return d<=asOf && d>asOf-days; });
   const acuteTries=inWindow(7).reduce((a,s)=>a+climbTries(s),0);
   const chronicTries=inWindow(28).reduce((a,s)=>a+climbTries(s),0);
   return {acuteTries, chronicTriesWeekly:chronicTries/4};
 }
 function hardAttemptsCheck(){
-  const lastClimb=[...store.sessions].filter(s=>s.type==="climb").sort((a,b)=>a.date<b.date?1:-1)[0];
+  const lastClimb=realSessions().filter(s=>s.type==="climb").sort((a,b)=>a.date<b.date?1:-1)[0];
   if(!lastClimb) return null;
   const cg=effectiveComfortableGrade();
-  const hardSends=(lastClimb.grades||[]).filter(g=>g>cg).length;
-  const hardAttempts=Object.entries(lastClimb.attempts||{}).filter(([g])=>Number(g)>cg).reduce((a,[,v])=>a+v,0);
-  const hard=hardSends+hardAttempts;
+  const c=gradeCounts(lastClimb.grades);
+  const hardGrades=new Set([...Object.keys(c),...Object.keys(lastClimb.attempts||{})].filter(g=>Number(g)>cg));
+  let hard=0; hardGrades.forEach(g=>{ hard+=Math.max(c[g]||0, (lastClimb.attempts||{})[g]||0); });
   if(hard>12){
     return `Quality over quantity next limit session — ${hard} hard tries above V${cg} last time. Past ~10-15, technique degrades faster than strength is gained.`;
   }
@@ -710,20 +728,20 @@ function risingCheck(metric,label){
    Plan-tab counter (visible in Performance phase regardless of stalled status, so the effort
    toward the next grade is visible before it's been stalled long enough to warrant a warning). */
 function triesAtNextGrade(){
-  const climbs=[...store.sessions].filter(s=>s.type==="climb"&&(s.grades||[]).length).sort((a,b)=>a.date<b.date?1:-1);
-  let hardestEver=-1; store.sessions.forEach(s=>(s.grades||[]).forEach(g=>{ if(g>hardestEver) hardestEver=g; }));
+  const climbs=realSessions().filter(s=>s.type==="climb"&&(s.grades||[]).length).sort((a,b)=>a.date<b.date?1:-1);
+  let hardestEver=-1; realSessions().forEach(s=>(s.grades||[]).forEach(g=>{ if(g>hardestEver) hardestEver=g; }));
   if(hardestEver<0) return null;
   const projectGrade=hardestEver+1;
   const last3=climbs.slice(0,3);
   const tries=last3.reduce((sum,s)=>{
     const sends=(s.grades||[]).filter(g=>g===projectGrade).length;
     const attempts=(s.attempts||{})[projectGrade]||0;
-    return sum+sends+attempts;
+    return sum+Math.max(sends,attempts);
   },0);
   return {projectGrade, tries, hardestEver, climbSessions:last3.length};
 }
 function stalledGradeCheck(){
-  const climbs=[...store.sessions].filter(s=>s.type==="climb"&&(s.grades||[]).length).sort((a,b)=>a.date<b.date?1:-1);
+  const climbs=realSessions().filter(s=>s.type==="climb"&&(s.grades||[]).length).sort((a,b)=>a.date<b.date?1:-1);
   if(climbs.length<3) return null;
   const {projectGrade,tries:triesAtProject,hardestEver}=triesAtNextGrade();
   const last3=climbs.slice(0,3);
@@ -738,23 +756,21 @@ function stalledGradeCheck(){
   return `Cycle back to a Strength Base block (6-8 session-weeks) — V${hardestEver} has been your ceiling for 3 sessions despite ${triesAtProject} tries at V${projectGrade} with no send.`;
 }
 /* ---- momentum/consistency: streaks, heatmap, and trend series (all derived, nothing persisted) ---- */
-/* Weeks are indexed relative to the first ever logged session, not a fixed calendar grid, so
-   "week 1" always means your actual first training week rather than an arbitrary Monday. */
+/* Day-level streak, driven by the same date set the consistency heatmap renders from — any
+   logged session (climb/hang/lift/mobility) counts a day as "on". */
 function trainingStreak(){
-  const sessions=[...store.sessions].sort((a,b)=>a.date<b.date?-1:1);
-  if(!sessions.length) return {current:0, best:0};
-  const start=dayDiff(sessions[0].date,"1970-01-01");
-  const weekIdx=s=>Math.floor((dayDiff(s.date,"1970-01-01")-start)/7);
-  const weeksWithSessions=new Set(sessions.map(weekIdx));
-  const todayWeek=Math.floor((dayDiff(todayStr(),"1970-01-01")-start)/7);
-  // Grace for the still-open current week: don't drop to 0 just because you haven't logged yet
-  // today — only count it broken once a full week has passed with nothing logged.
-  let w = weeksWithSessions.has(todayWeek) ? todayWeek : todayWeek-1;
+  const daysWithSessions=new Set(realSessions().map(s=>s.date));
+  if(!daysWithSessions.size) return {current:0, best:0};
+  // Grace for today: don't drop to 0 just because nothing's logged yet today — only count
+  // broken once a full day has passed with nothing logged.
+  const todayLogged=daysWithSessions.has(todayStr());
   let current=0;
-  for(; w>=0 && weeksWithSessions.has(w); w--) current++;
+  for(let i=todayLogged?0:1; daysWithSessions.has(dateFromDaysAgo(i)); i++) current++;
+  const firstDate=[...daysWithSessions].sort()[0];
+  const span=Math.max(0,dayDiff(todayStr(),firstDate));
   let best=0, run=0;
-  for(let i=0;i<=todayWeek;i++){
-    if(weeksWithSessions.has(i)){ run++; best=Math.max(best,run); } else run=0;
+  for(let i=span;i>=0;i--){
+    if(daysWithSessions.has(dateFromDaysAgo(i))){ run++; best=Math.max(best,run); } else run=0;
   }
   return {current, best:Math.max(best,current)};
 }
@@ -775,16 +791,16 @@ function heatmapData(weeks=18){
   return out;
 }
 function sendsAttemptsSeries(n=10){
-  return [...store.sessions].filter(s=>s.type==="climb"&&((s.grades||[]).length||Object.values(s.attempts||{}).some(v=>v>0)))
+  return realSessions().filter(s=>s.type==="climb"&&((s.grades||[]).length||Object.values(s.attempts||{}).some(v=>v>0)))
     .sort((a,b)=>a.date<b.date?-1:1).slice(-n)
-    .map(s=>({date:s.date, sends:(s.grades||[]).length, attempts:Object.values(s.attempts||{}).reduce((a,b)=>a+b,0)}));
+    .map(s=>({date:s.date, sends:(s.grades||[]).length, attempts:extraAttempts(s)}));
 }
 function weeklyTriesSeries(weeks=12){
   const todayEpoch=dayDiff(todayStr(),"1970-01-01");
   const out=[];
   for(let w=weeks-1;w>=0;w--){
     const end=todayEpoch-w*7, start=end-6;
-    const tries=store.sessions.filter(s=>{ const d=dayDiff(s.date,"1970-01-01"); return d>=start && d<=end; })
+    const tries=realSessions().filter(s=>{ const d=dayDiff(s.date,"1970-01-01"); return d>=start && d<=end; })
       .reduce((a,s)=>a+climbTries(s),0);
     out.push({weekEnd:end, tries});
   }
@@ -845,7 +861,7 @@ function detailOf(s){
   if(s.type==="climb"){
     const c=gradeCounts(s.grades);
     const sendsStr=Object.keys(c).sort((a,b)=>b-a).map(g=>`V${g}×${c[g]}`).join("  ")||"—";
-    const attTotal=Object.values(s.attempts||{}).reduce((a,b)=>a+b,0);
+    const attTotal=extraAttempts(s);
     return sendsStr+(attTotal?`  · +${attTotal} attempt${attTotal===1?"":"s"}`:"");
   }
   if(s.type==="hang"){
@@ -1024,7 +1040,7 @@ function renderPlan(){
   const warnings=computeGuardrails(store);
   const pct=Math.min(100,Math.round((absWeek/TOTAL_WEEKS)*100));
   const complete = (store.progress||{}).completedCycle;
-  const lastSession=[...store.sessions].sort((a,b)=>a.date<b.date?1:-1)[0];
+  const lastSession=realSessions().sort((a,b)=>a.date<b.date?1:-1)[0];
   const daysSince = lastSession ? dayDiff(todayStr(),lastSession.date) : null;
   const lastText = daysSince==null ? "No sessions logged yet" :
     daysSince<=0 ? "Last session: today" : daysSince===1 ? "Last session: 1 day ago" :
@@ -1032,12 +1048,12 @@ function renderPlan(){
     `Last session: ${daysSince} days ago`;
   const streak=trainingStreak();
   const streakText = streak.current>0
-    ? `${streak.current}-week streak${streak.best>streak.current?` <small>· best ${streak.best}</small>`:""}`
-    : `Log a session this week to start a streak`;
+    ? `${streak.current}-day streak${streak.best>streak.current?` <small>· best ${streak.best}</small>`:""}`
+    : `Log a session today to start a streak`;
 
   const typeIcon={climb:I.climb,hang:I.hang,lift:I.lift,mobility:I.mobility};
   const insight=sessionInsight(next);
-  const mobilityDoneToday=store.sessions.some(s=>s.type==="mobility"&&s.date===todayStr());
+  const mobilityDoneToday=realSessions().some(s=>s.type==="mobility"&&s.date===todayStr());
   const mobilityRow=`<div class="field">
     <div class="liftrow" id="mobilityCard" style="cursor:pointer;
       border:1px solid ${mobilityDoneToday?"var(--mobility)":"var(--line)"};
@@ -1421,9 +1437,6 @@ function renderHistory(){
           : `<button class="del" data-del="${s.id}">${I.trash}Delete</button>`}
       </div>
       <div class="hdetail">${esc(detailOf(s))}${s.rpe!=null?`  <span style="color:var(--faint)">· RPE ${s.rpe}</span>`:""}</div>
-      ${(s.sleep||s.soreness)?`<div class="hnotes">${[s.sleep?SLEEP[s.sleep].label+" sleep":null, s.soreness?SORENESS[s.soreness].label.toLowerCase():null].filter(Boolean).join(" · ")}</div>`:""}
-      ${s.intensityFlag?`<div class="hnotes" style="color:var(--tweaky)">Logged harder than planned (RPE ${s.intensityFlag.actual} vs ~${s.intensityFlag.target})</div>`:""}
-      ${s.notes?`<div class="hnotes">${esc(s.notes)}</div>`:""}
     </div>`;
   }).join("")+`<div class="hint" style="text-align:center;margin-top:6px">Tap to edit</div>`;
 }
@@ -1447,7 +1460,7 @@ function comfortableGradeNote(){
   return `No send history or manual value yet — falling back to target grade − 4.`;
 }
 function renderProgress(){
-  const s=store.sessions;
+  const s=realSessions();
   const cutoff=dayDiff(todayStr(),"1970-01-01")-7;
   const last7d=s.filter(x=>dayDiff(x.date,"1970-01-01")>cutoff).length;
   let hardest=-1; s.forEach(x=>(x.grades||[]).forEach(g=>{ if(g>hardest)hardest=g; }));
@@ -1543,7 +1556,7 @@ function dotStrip(values,colorMap){
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;display:block" preserveAspectRatio="xMinYMid meet">${circles}</svg>`;
 }
 function gradeHistory(){
-  const climbs=[...store.sessions].filter(s=>s.type==="climb"&&(s.grades||[]).length)
+  const climbs=realSessions().filter(s=>s.type==="climb"&&(s.grades||[]).length)
     .sort((a,b)=>a.date<b.date?-1:1);
   let running=-1; const pts=[];
   climbs.forEach(s=>{
@@ -1690,9 +1703,9 @@ function renderBenchmarkList(){
     </div>`;
 }
 function renderRecoveryTrends(){
-  const withFinger=[...store.sessions].filter(s=>s.finger).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
-  const withSleep=[...store.sessions].filter(s=>s.sleep).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
-  const withSoreness=[...store.sessions].filter(s=>s.soreness).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
+  const withFinger=realSessions().filter(s=>s.finger).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
+  const withSleep=realSessions().filter(s=>s.sleep).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
+  const withSoreness=realSessions().filter(s=>s.soreness).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
   if(!withFinger.length && !withSleep.length && !withSoreness.length) return "";
   const fingerColors={good:"var(--good)",tweaky:"var(--tweaky)",pain:"var(--pain)"};
   const sleepColors={poor:"var(--pain)",ok:"var(--tweaky)",good:"var(--good)"};
@@ -1702,15 +1715,15 @@ function renderRecoveryTrends(){
     ${row("Sleep",withSleep,sleepColors,"sleep")}
     ${row("Soreness",withSoreness,sorenessColors,"soreness")}`;
 }
-function rpeTrend(){ return [...store.sessions].filter(s=>s.rpe!=null).sort((a,b)=>a.date<b.date?-1:1).map(s=>s.rpe); }
+function rpeTrend(){ return realSessions().filter(s=>s.rpe!=null).sort((a,b)=>a.date<b.date?-1:1).map(s=>s.rpe); }
 function liftTrend(key){
-  return [...store.sessions].filter(s=>s.type==="lift"&&s.lift&&s.lift.entries&&s.lift.entries[key]&&s.lift.entries[key].length)
+  return realSessions().filter(s=>s.type==="lift"&&s.lift&&s.lift.entries&&s.lift.entries[key]&&s.lift.entries[key].length)
     .sort((a,b)=>a.date<b.date?-1:1)
     .map(s=>Math.max(...s.lift.entries[key].map(r=>Number(r.weight)||0)));
 }
 function hangTrend(protocol,grip){
   grip = grip || latestGripFor(protocol);
-  return [...store.sessions].filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol&&(s.hang.grip||"half")===grip)
+  return realSessions().filter(s=>s.type==="hang"&&s.hang&&s.hang.protocol===protocol&&(s.hang.grip||"half")===grip)
     .sort((a,b)=>a.date<b.date?-1:1).map(s=>s.hang.addedLb??0);
 }
 function renderStrengthTrends(){
@@ -1813,6 +1826,9 @@ function bumpGrade(g,d){
   c[g]=Math.max(0,(c[g]||0)+d);
   const out=[]; Object.keys(c).forEach(k=>{ for(let i=0;i<c[k];i++)out.push(Number(k)); });
   f.grades=out;
+  // A send is itself a try — keep this grade's attempts count moving with its sends count.
+  f.attempts=f.attempts||{};
+  f.attempts[g]=Math.max(0,(f.attempts[g]||0)+d);
 }
 function loadSessionIntoForm(sess){
   const f=blankForm();
@@ -1873,14 +1889,14 @@ function commitSave(){
     // Celebration detection — only on a genuinely new log, never on an edit, so backfilling/
     // correcting old sessions never triggers a fake "new PR" moment.
     let priorHardestEver=-1;
-    store.sessions.forEach(x=>(x.grades||[]).forEach(g=>{ if(g>priorHardestEver) priorHardestEver=g; }));
+    realSessions().forEach(x=>(x.grades||[]).forEach(g=>{ if(g>priorHardestEver) priorHardestEver=g; }));
     store.sessions.push(s);
     // Mobility runs parallel to the phase's session-week cycle, not part of it — logging it
     // shouldn't advance the plan's slot pointer through the climb/hang/lift rotation.
     if(f.type!=="mobility") advanceProgress();
     const newMax = (s.grades||[]).length ? Math.max(...s.grades) : -1;
     if(newMax>priorHardestEver && newMax>=0) ui.celebrate={...ui.celebrate, pr:newMax};
-    if(MILESTONES.includes(store.sessions.length)) ui.celebrate={...ui.celebrate, milestone:store.sessions.length};
+    if(MILESTONES.includes(realSessions().length)) ui.celebrate={...ui.celebrate, milestone:realSessions().length};
   }
   save();
   const keepType=f.type, keepDate=f.date;
