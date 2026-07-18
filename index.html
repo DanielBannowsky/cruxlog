@@ -26,9 +26,7 @@
   button{font-family:inherit; cursor:pointer;}
   input,textarea{font-family:inherit;}
   input[type=date]{-webkit-appearance:none;}
-  @media (prefers-reduced-motion: reduce){*{transition:none !important; animation:none !important;}}
-  @keyframes savePop{0%{transform:scale(1)} 45%{transform:scale(1.045)} 100%{transform:scale(1)}}
-  @keyframes heroIn{from{opacity:0; transform:translateY(-4px)} to{opacity:1; transform:translateY(0)}}
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;}}
 
   /* header */
   header{position:sticky; top:0; z-index:5; background:var(--bg);
@@ -116,7 +114,7 @@
     font-weight:800; letter-spacing:.3px; background:var(--panel2); color:var(--faint);
     display:flex; align-items:center; justify-content:center; gap:8px; transition:background .2s;}
   .save.ready{background:var(--accent); color:#0E1418;}
-  .save.flash{background:var(--good); color:#0E1418; animation:savePop .4s cubic-bezier(.34,1.56,.64,1);}
+  .save.flash{background:var(--good); color:#0E1418;}
   .save svg{width:18px; height:18px;}
 
   /* history */
@@ -138,7 +136,7 @@
 
   /* progress */
   .cur{background:linear-gradient(160deg, var(--panel), #202A33); border-radius:16px; padding:18px 16px;
-    margin-bottom:14px; box-shadow:0 8px 24px rgba(0,0,0,.35); animation:heroIn .25s ease-out;}
+    margin-bottom:14px; box-shadow:0 8px 24px rgba(0,0,0,.35);}
   .cur .lab{color:var(--faint); font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase;}
   .cur .big{display:flex; align-items:baseline; gap:10px; margin-top:6px;}
   .cur .wknum{font-family:ui-monospace,monospace; font-size:34px; font-weight:800; color:var(--ink);}
@@ -155,7 +153,7 @@
   .btn2{width:100%; border-radius:14px; padding:16px; background:var(--panel2); color:var(--ink);
     font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px;
     border:1px solid var(--line); transition:background .2s; margin-bottom:10px;}
-  .btn2.flash{background:var(--good); color:#0E1418; border-color:var(--good); animation:savePop .4s cubic-bezier(.34,1.56,.64,1);}
+  .btn2.flash{background:var(--good); color:#0E1418; border-color:var(--good);}
   .btn2.danger{background:transparent; color:var(--pain); border-color:var(--pain);}
   .btn2 svg{width:18px; height:18px;}
   .note{color:var(--faint); font-size:12px; margin-top:2px; text-align:center; line-height:1.5;}
@@ -210,7 +208,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v26";
+const APP_VERSION = "v27";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings

@@ -1,5 +1,5 @@
 /* CruxLog service worker — bump CACHE when you change any file to force an update */
-const CACHE = "cruxlog-v26";
+const CACHE = "cruxlog-v27";
 const ASSETS = [
   "./",
   "./index.html",
