@@ -52,6 +52,7 @@
   .daterow{display:flex; align-items:center; justify-content:space-between; margin:16px 2px 4px;}
   .daterow input{background:transparent; border:none; color:var(--ink);
     font-size:15px; padding:0; font-family:ui-monospace,monospace;}
+  .daterow input::-webkit-calendar-picker-indicator{display:none;}
   .wk{color:var(--faint); font-size:12px; font-family:ui-monospace,monospace;}
   .rule{height:1px; background:var(--line); margin:8px 0 20px;}
 
@@ -214,7 +215,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v35";
+const APP_VERSION = "v36";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -1282,9 +1283,6 @@ function renderLog(){
       <div class="hint" style="line-height:1.5">${esc(info.full||info.detail||"")}</div>
     </div></div>`:"";
 
-  const lastOfType = !editing ? [...store.sessions].filter(s=>s.type===f.type).sort((a,b)=>a.date<b.date?1:-1)[0] : null;
-  const copyLast = lastOfType ? `<div class="hint" style="margin:0 0 14px"><span id="copyLast" style="text-decoration:underline;cursor:pointer;color:var(--accent)">Copy last ${f.type} session's numbers</span></div>` : "";
-
   return errBanner()+`
     ${editing?`<div class="hint" style="margin-bottom:10px">Editing: save will overwrite this session.</div>`:""}
     <div class="seg" data-seg="type">
@@ -1296,7 +1294,6 @@ function renderLog(){
     <div class="daterow">
       <input type="date" id="date" value="${f.date}">
     </div>
-    ${copyLast}
     <div class="rule"></div>
     ${infoCard}${warmup}${body}${finger}${moreToggle}${moreBody}${saveBtn}`;
 }
@@ -1968,12 +1965,6 @@ function wire(){
   // grade card range / optional-details disclosures
   const get=$main.querySelector("#gradeExpandToggle"); if(get) get.onclick=()=>{ ui.gradeExpanded=!ui.gradeExpanded; render(); };
   const lmt=$main.querySelector("#logMoreToggle"); if(lmt) lmt.onclick=()=>{ ui.logMoreOpen=!ui.logMoreOpen; render(); };
-  const cl=$main.querySelector("#copyLast"); if(cl) cl.onclick=()=>{
-    const f=ui.form, last=[...store.sessions].filter(s=>s.type===f.type).sort((a,b)=>a.date<b.date?1:-1)[0];
-    if(!last) return;
-    const loaded=loadSessionIntoForm(last); loaded.date=todayStr();
-    ui.form=loaded; ui.gradeExpanded=false; render();
-  };
   // save
   const sv=$main.querySelector("#save"); if(sv) sv.onclick=commitSave;
   const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=freshForm(); ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); render(); };
