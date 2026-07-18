@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v32";
+const APP_VERSION = "v33";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -1617,8 +1617,8 @@ function renderHeatmap(){
       const x2=(x+cell).toFixed(1), y2=(y+cell).toFixed(1);
       return `<g ${strokeAttr}>
         <rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="none" ${strokeAttr}/>
-        <polygon points="${x},${y} ${x},${y2} ${x2},${y2}" fill="${TYPE_COLORS.mobility}"/>
-        <polygon points="${x},${y} ${x2},${y} ${x2},${y2}" fill="${otherColor}"/>
+        <polygon points="${x},${y} ${x2},${y} ${x},${y2}" fill="${TYPE_COLORS.mobility}"/>
+        <polygon points="${x2},${y} ${x2},${y2} ${x},${y2}" fill="${otherColor}"/>
         ${title}
       </g>`;
     }
