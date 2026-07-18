@@ -38,7 +38,7 @@ This is aggressive but realistic *given the "rebuilding" starting point* — som
 
 ### Phase 1 — Strength Base (8 session-weeks)
 **Goal:** build the max-strength ceiling (fingers + pull) that later power work will convert into hard moves.
-- Climbing: 3 sessions/session-week — a volume day (V1-V5), a "limit" session at V5-V6 (above your comfortable V4 ceiling — movement is allowed to be ugly, goal is exposure to harder holds/angles, not sends), and a volume/ARC day.
+- Climbing: 3 sessions/session-week — two volume days (V1-V5, one of them volume/ARC), and one project/limit session at V5-V6 (above your comfortable V4 ceiling — movement is allowed to be ugly, goal is exposure to harder holds/angles, not sends), scheduled last after both volume days so it lands on fresher tissue.
 - Hangboard: progress to **max hangs**, 10s hang / 3 min rest x 5-6 sets, added or removed weight to hit near-max effort on a ~20mm edge, 1 session/session-week (Eva López / Lattice max-hang protocol). Plus 1 repeater session/session-week for tendon durability.
 - Weights: **1 session/session-week** — see Lift Day Protocol below, progressive overload.
 - Deload every 4th session-week: halve hangboard/lift volume, keep climbing light.
@@ -87,7 +87,7 @@ Antagonist and wrist work (rows 2-4) stay in at a steady, non-maxing effort in e
 The app cycles through these lists once per session-week; order is a guide, not a hard sequence — log whatever type you actually did and it still advances.
 
 **Reconditioning:** Climb (volume) → Hang (repeaters) → Climb (volume) → Hang (repeaters) → Lift (light) → Climb (ARC/easy)
-**Strength Base:** Climb (volume) → Hang (max hangs) → Climb (limit) → Hang (repeaters) → Lift (build) → Climb (volume/ARC)
+**Strength Base:** Climb (volume) → Hang (max hangs) → Climb (volume/ARC) → Hang (repeaters) → Lift (build) → Climb (project/limit)
 **Power & Power-Endurance:** Climb (limit) → Hang (maintenance) → Climb (power-endurance) → Lift (maintain) → Climb (volume/campus)
 **Performance / Send:** Climb (project) → Hang (maintenance) → Climb (project) → Lift (maintain) → Climb (volume/technique)
 

@@ -204,8 +204,9 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v20";
+const APP_VERSION = "v21";
 const KEY = "climb-tracker-v1";
+const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
    (clamped up to V14-V16 elsewhere) never index past the end of this array. */
 const GRADE_COLORS = ["#5E8A96","#5E9689","#5F9C7E","#79A066","#A3A055","#C0983F",
@@ -298,14 +299,14 @@ const WEEKLY_TEMPLATES = {
       full:"Grade: {{grade}}. Volume: moderate. Include 2-3 footwork-drill problems. Warm up before harder attempts."},
     {type:"hang", label:"Hangboard — max hangs", detail:"20mm · {{load}} · 10s/3min×5–6",protocol:"max", targetRpe:9,
       full:"Edge: 20mm. Load: {{load}} (near-max). Protocol: 10s hang / 3min rest × 5-6 sets. Full rest required, no shortcuts."},
-    {type:"climb",label:"Climb — limit",   detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
-      full:"Grade: {{grade}}. Volume: low. Rest: full (3-5min) between attempts. Movement quality not required."},
+    {type:"climb",label:"Climb — volume / ARC", targetRpe:5, gradeRole:"volume",
+      full:"Grade: {{grade}}. Active recovery / mileage."},
     {type:"hang", label:"Hangboard — repeaters", detail:"{{load}} · repeaters + core",protocol:"repeater", targetRpe:6,
       full:"Load: {{load}}. Repeaters + core. Intensity: moderate — maintenance, not primary stimulus."},
     {type:"lift", label:"Lift — build",  detail:"6 lifts · progressive overload", targetRpe:7,
       full:LIFT_FULL.strength},
-    {type:"climb",label:"Climb — volume / ARC", targetRpe:5, gradeRole:"volume",
-      full:"Grade: {{grade}}. Active recovery / mileage."},
+    {type:"climb",label:"Climb — project/limit",   detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
+      full:"Grade: {{grade}}. Volume: low. Rest: full (3-5min) between attempts. Movement quality not required. Scheduled last, after both volume days, so it lands on fresher tissue."},
   ],
   power:[
     {type:"climb",label:"Climb — limit",   detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
@@ -752,6 +753,21 @@ function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(store)); saveError=false; }
   catch{ saveError=true; }
 }
+/* Keeps an in-progress (unsaved) Log form across tab switches / app close, so leaving
+   mid-entry doesn't mean refilling everything from scratch. Cleared implicitly once
+   commitSave() resets the form back to blank. */
+function saveDraft(){
+  try{ localStorage.setItem(DRAFT_KEY, JSON.stringify({form:ui.form, editingId:ui.editingId})); }
+  catch{}
+}
+function loadDraft(){
+  try{
+    const raw=localStorage.getItem(DRAFT_KEY);
+    if(!raw) return;
+    const d=JSON.parse(raw);
+    if(d && d.form){ ui.form=deepMerge(blankForm(), d.form); ui.editingId=d.editingId||null; }
+  }catch{}
+}
 
 /* ============================ render ============================ */
 const $main=document.getElementById("main");
@@ -769,6 +785,7 @@ function render(){
   else $main.innerHTML=renderProgress();
   renderNav();
   wire();
+  saveDraft();
 }
 
 function renderNav(){
@@ -1486,7 +1503,7 @@ function wire(){
     const v=b.dataset.soreness; ui.form.soreness=ui.form.soreness===v?null:v; render(); });
   const wu=$main.querySelector("[data-warmedup]"); if(wu) wu.onclick=()=>{ ui.form.warmedUp=!ui.form.warmedUp; render(); };
   // notes (no re-render)
-  const nt=$main.querySelector("#notes"); if(nt) nt.oninput=e=>{ ui.form.notes=e.target.value; };
+  const nt=$main.querySelector("#notes"); if(nt) nt.oninput=e=>{ ui.form.notes=e.target.value; saveDraft(); };
   // save
   const sv=$main.querySelector("#save"); if(sv) sv.onclick=commitSave;
   const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=freshForm(); render(); };
@@ -1676,7 +1693,7 @@ document.getElementById("importer").onchange=e=>{
 };
 
 /* ============================ boot ============================ */
-load(); render();
+load(); loadDraft(); render();
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
