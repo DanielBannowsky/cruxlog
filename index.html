@@ -26,7 +26,9 @@
   button{font-family:inherit; cursor:pointer;}
   input,textarea{font-family:inherit;}
   input[type=date]{-webkit-appearance:none;}
-  @media (prefers-reduced-motion: reduce){*{transition:none !important;}}
+  @media (prefers-reduced-motion: reduce){*{transition:none !important; animation:none !important;}}
+  @keyframes savePop{0%{transform:scale(1)} 45%{transform:scale(1.045)} 100%{transform:scale(1)}}
+  @keyframes heroIn{from{opacity:0; transform:translateY(-4px)} to{opacity:1; transform:translateY(0)}}
 
   /* header */
   header{position:sticky; top:0; z-index:5; background:var(--bg);
@@ -70,7 +72,7 @@
   .gstepbtn{width:36px; height:36px; border-radius:8px; border:1px solid var(--line);
     background:var(--panel2); color:var(--ink); display:flex; align-items:center; justify-content:center;}
   .gstepbtn svg{width:13px; height:13px;}
-  .hint{color:var(--faint); font-size:11px; margin-top:8px;}
+  .hint{color:var(--faint); font-size:12px; margin-top:8px;}
 
   /* stepper block */
   .stack{display:flex; flex-direction:column; gap:16px; background:var(--panel);
@@ -110,7 +112,7 @@
     font-weight:800; letter-spacing:.3px; background:var(--panel2); color:var(--faint);
     display:flex; align-items:center; justify-content:center; gap:8px; transition:background .2s;}
   .save.ready{background:var(--accent); color:#0E1418;}
-  .save.flash{background:var(--good); color:#0E1418;}
+  .save.flash{background:var(--good); color:#0E1418; animation:savePop .4s cubic-bezier(.34,1.56,.64,1);}
   .save svg{width:18px; height:18px;}
 
   /* history */
@@ -131,13 +133,14 @@
   .hicon svg{width:16px; height:16px;}
 
   /* progress */
-  .cur{background:var(--panel); border-radius:16px; padding:18px 16px; margin-bottom:14px; border:1px solid var(--line);}
+  .cur{background:linear-gradient(160deg, var(--panel), #202A33); border-radius:16px; padding:18px 16px;
+    margin-bottom:14px; box-shadow:0 8px 24px rgba(0,0,0,.35); animation:heroIn .25s ease-out;}
   .cur .lab{color:var(--faint); font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase;}
   .cur .big{display:flex; align-items:baseline; gap:10px; margin-top:6px;}
   .cur .wknum{font-family:ui-monospace,monospace; font-size:34px; font-weight:800; color:var(--ink);}
   .cur .phase{color:var(--accent); font-size:15px; font-weight:700;}
   .statgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
-  .stat{background:var(--panel); border-radius:14px; padding:16px 14px; border:1px solid var(--line);}
+  .stat{background:var(--panel); border-radius:14px; padding:16px 14px; border:1px solid var(--line); box-shadow:0 4px 12px rgba(0,0,0,.25);}
   .stat .lab{color:var(--faint); font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;}
   .stat .v{font-family:ui-monospace,monospace; font-size:26px; font-weight:800; margin-top:4px; color:var(--ink);}
   .stat .sub{font-size:11px; color:var(--faint); margin-top:2px;}
@@ -148,7 +151,7 @@
   .btn2{width:100%; border-radius:14px; padding:16px; background:var(--panel2); color:var(--ink);
     font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px;
     border:1px solid var(--line); transition:background .2s; margin-bottom:10px;}
-  .btn2.flash{background:var(--good); color:#0E1418; border-color:var(--good);}
+  .btn2.flash{background:var(--good); color:#0E1418; border-color:var(--good); animation:savePop .4s cubic-bezier(.34,1.56,.64,1);}
   .btn2.danger{background:transparent; color:var(--pain); border-color:var(--pain);}
   .btn2 svg{width:18px; height:18px;}
   .note{color:var(--faint); font-size:12px; margin-top:2px; text-align:center; line-height:1.5;}
@@ -203,7 +206,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v24";
+const APP_VERSION = "v25";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -603,6 +606,65 @@ function computeGuardrails(store){
 
   return out;
 }
+/* Tiny deterministic string hash — used to pick a stable-per-day copy variation without
+   persisting anything or needing a real RNG (same input always picks the same option). */
+function hashCode(str){
+  let h=0;
+  for(let i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))|0; }
+  return Math.abs(h);
+}
+function pick(seed,options){ return options[hashCode(seed)%options.length]; }
+
+const ONTRACK_LINES=[
+  "No flags — steady as planned.",
+  "Nothing to report. Keep stacking sessions.",
+  "Load looks right for where you are in the plan.",
+];
+/* Collapses the guardrail levels already computed above into one glanceable word+color+line —
+   the "hero" state for the Plan tab, reusing computeGuardrails' output rather than re-deriving. */
+function loadVerdict(warnings,isDeload){
+  if(isDeload) return {label:"Deload",color:"var(--accent)",detail:"Recovery week — lighter load by design."};
+  const bad=warnings.find(w=>w.level==="bad");
+  if(bad) return {label:"Ease up",color:"var(--pain)",detail:bad.text};
+  const warn=warnings.find(w=>w.level==="warn");
+  if(warn) return {label:"Caution",color:"var(--tweaky)",detail:warn.text};
+  const good=warnings.find(w=>w.level==="good");
+  return {label:"On track",color:"var(--good)",detail: good ? good.text : pick(todayStr()+"ontrack",ONTRACK_LINES)};
+}
+/* One contextual line for the "Up next" card, composed entirely from data already computed
+   elsewhere (trend/tries helpers) — replaces the old standalone next-grade card. */
+function sessionInsight(next){
+  if(next.type==="climb"){
+    if(next.gradeRole==="limit" || next.gradeRole==="project"){
+      const t=triesAtNextGrade();
+      if(t) return t.tries>0
+        ? `${t.tries} ${t.tries===1?"try":"tries"} logged at V${t.projectGrade} so far.`
+        : `No tries logged yet at V${t.projectGrade} — first crack today.`;
+    }
+    const recent=sendsAttemptsSeries(3);
+    if(recent.length){
+      const sends=recent.reduce((a,r)=>a+r.sends,0), att=recent.reduce((a,r)=>a+r.attempts,0);
+      return `Last ${recent.length} climbing session${recent.length===1?"":"s"}: ${sends} sends, ${att} attempts.`;
+    }
+    return "First climb session logged sets your baseline.";
+  }
+  if(next.type==="hang"){
+    const protocol=next.protocol||"repeater";
+    const grip=latestGripFor(protocol);
+    const t=hangTrend(protocol,grip);
+    if(t.length>=2){
+      const dir = t[t.length-1]>t[0] ? "climbing" : t[t.length-1]<t[0] ? "down" : "holding steady";
+      return `Load ${dir} — last ${t.length}: ${t.join("→")}lb.`;
+    }
+    return `First ${protocol==="max"?"max hang":"repeater"} session — establishing baseline load.`;
+  }
+  if(next.type==="lift"){
+    const t=liftTrend("pullup");
+    if(t.length>=2) return `Pull-up top set: ${t.slice(-3).join("→")}lb.`;
+    return "Lift day — same six exercises, every week.";
+  }
+  return null;
+}
 function climbTries(s){
   if(s.type!=="climb") return 0;
   const sends=(s.grades||[]).length;
@@ -937,6 +999,8 @@ function renderPlan(){
     : `Log a session this week to start a streak`;
 
   const typeIcon={climb:I.climb,hang:I.hang,lift:I.lift};
+  const verdict=loadVerdict(warnings,isDeload);
+  const insight=sessionInsight(next);
 
   const warnBlock = warnings.length ? `<div class="field">${warnings.map(w=>{
     const bg = w.level==="bad" ? "#3A2622" : w.level==="warn" ? "#3A3122" : w.level==="good" ? "#1E3327" : "var(--panel)";
@@ -945,12 +1009,6 @@ function renderPlan(){
     const glyph = w.level==="bad" ? "⚠ " : w.level==="warn" ? "! " : w.level==="good" ? "✓ " : "";
     return `<div style="background:${bg};color:${fg};border-radius:12px;border-left:4px solid ${border};padding:12px 14px;font-size:13px;margin-bottom:8px;line-height:1.4;">${glyph}${esc(w.text)}</div>`;
   }).join("")}</div>` : "";
-
-  const nextGrade = cur.phase.key==="perform" ? triesAtNextGrade() : null;
-  const nextGradeCard = nextGrade ? `<div class="field"><div style="background:var(--panel2);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:13px;color:var(--sub)">V${nextGrade.projectGrade} attempts (last 3 sessions)</span>
-      <span style="font-family:ui-monospace,monospace;font-weight:800;color:var(--ink)">${nextGrade.tries} ${nextGrade.tries===1?"try":"tries"}</span>
-    </div></div>` : "";
 
   const detailOpen = ui.planDetailOpen;
   const upNextCard = complete ? `<div class="field"><div class="flabel">Up next</div>
@@ -965,6 +1023,7 @@ function renderPlan(){
           </div>
           <span style="color:var(--faint);transform:rotate(${detailOpen?90:0}deg);transition:transform .15s">${I.chev}</span>
         </div>
+        ${insight?`<div class="hint" style="color:var(--accent);font-weight:600">${esc(insight)}</div>`:""}
         ${detailOpen&&next.full?`<div class="hint" style="background:var(--panel2);border-radius:10px;padding:12px;line-height:1.5">${esc(next.full)}</div>`:""}
         <button class="btn2" id="logToday" style="margin:0">${I.plus}Log this session</button>
       </div>
@@ -973,6 +1032,10 @@ function renderPlan(){
   const phaseInfoOpen=ui.phaseInfoOpen;
   return errBanner()+`
     <div class="cur">
+      <div class="lab" style="color:${verdict.color}">Today</div>
+      <div class="big"><span class="wknum" style="color:${verdict.color};font-size:30px">${esc(verdict.label)}</span></div>
+      <div class="hint" style="margin-top:6px">${esc(verdict.detail)}</div>
+      <div class="rule" style="margin:14px 0 10px"></div>
       <div id="phaseInfoTap" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer">
         <span class="lab" style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--sub)">${phase.name} · Week ${weekInPhase}/${phase.weeks}${held?" (extended)":""}</span>
         <span style="color:var(--faint);transform:rotate(${phaseInfoOpen?90:0}deg);transition:transform .15s">${I.chev}</span>
@@ -980,7 +1043,7 @@ function renderPlan(){
       ${phaseInfoOpen?`<div class="stack" style="margin-top:10px">
           <div>
             <div style="height:6px;background:var(--panel2);border-radius:4px;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px"></div></div>
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--tweaky));border-radius:4px"></div></div>
             <div class="hint" style="margin-top:6px">Plan week ${absWeek} of ${TOTAL_WEEKS}</div>
           </div>
           <div class="hint">${esc(phase.note)}</div>
@@ -1009,7 +1072,6 @@ function renderPlan(){
     </div>
     ${isDeload?`<div class="field"><div style="background:#22303A;color:var(--accent);border-radius:12px;padding:12px 14px;font-size:13px;">Deload week: halve hangboard/lift volume.</div></div>`:""}
     ${upNextCard}
-    ${nextGradeCard}
     ${warnBlock}
     <div class="field">
       <div class="hint"><span id="planSlotsToggle" style="text-decoration:underline;cursor:pointer">${ui.planSlotsOpen?"Hide":"View"} full session order for ${esc(phase.name)}</span></div>
