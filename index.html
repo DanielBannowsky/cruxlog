@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v34";
+const APP_VERSION = "v35";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -2021,19 +2021,15 @@ function wire(){
   const unt=$main.querySelector("#upNextTap"); if(unt) unt.onclick=()=>{ ui.planSlotsOpen=true; render(); };
   const pkc=$main.querySelector("#pickerClose"); if(pkc) pkc.onclick=()=>{ ui.planSlotsOpen=false; render(); };
   const pit=$main.querySelector("#phaseInfoTap"); if(pit) pit.onclick=()=>{ ui.phaseInfoOpen=!ui.phaseInfoOpen; render(); };
-  // workout picker — choosing a slot both repositions the plan pointer to it and jumps
-  // straight into the Log tab pre-filled for that slot's type/protocol/gradeRole.
+  // workout picker — choosing a slot repositions the plan pointer to it and updates the
+  // Up Next card in place; it does not navigate to the Log tab.
   $main.querySelectorAll("[data-picklot]").forEach(row=>row.onclick=()=>{
     const i=+row.dataset.picklot, cur=currentProgress();
-    const chosen=cur.slots[i];
     setProgressUndo();
     store.progress={phaseIdx:cur.phaseIdx, weekInPhase:cur.weekInPhase, slot:i};
     save();
     ui.planSlotsOpen=false;
-    ui.editingId=null;
-    ui.form=freshForm(chosen.type, chosen.protocol, chosen.gradeRole);
-    ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
-    ui.tab="log"; render();
+    render();
   });
   // manual phase/week override
   const pp=$main.querySelector('[data-planpos="toggle"]'); if(pp) pp.onclick=()=>{ ui.planPosOpen=true; render(); };
