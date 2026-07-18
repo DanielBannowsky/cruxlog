@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v39";
+const APP_VERSION = "v40";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -801,7 +801,10 @@ function sendsAttemptsSeries(n=10){
    usually means under-logged volume rather than genuine readiness. */
 function gradePyramid(){
   const c={}, extra={};
-  realSessions().filter(s=>s.type==="climb").forEach(s=>{
+  // Deliberately includes {seed:true} sample sessions, same as heatmapData() — previewing
+  // this chart with "Load sample data" is the point, unlike the real-stat computations
+  // realSessions() protects elsewhere.
+  store.sessions.filter(s=>s.type==="climb").forEach(s=>{
     (s.grades||[]).forEach(g=>{ c[g]=(c[g]||0)+1; });
     Object.entries(s.attempts||{}).forEach(([g,v])=>{
       const sendsAtG=(s.grades||[]).filter(x=>String(x)===g).length;
@@ -1744,7 +1747,11 @@ function benchTrend(metric){
    calls out. */
 function renderBenchmarkVsGrade(){
   const bw=store.settings.bodyweight;
-  const hang=latestBenchmark("hang"), pull=latestBenchmark("pull");
+  // Deliberately includes {seed:true} sample benchmarks, unlike latestBenchmark() (which the
+  // real strength gate/guardrails use) — previewing this chart with "Load sample data" is
+  // the point here, same as gradePyramid() and the heatmap.
+  const anyBench=metric=>(store.benchmarks||[]).filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?1:-1)[0]||null;
+  const hang=anyBench("hang"), pull=anyBench("pull");
   if(!bw || (!hang && !pull)) return `<div class="field"><div class="flabel">Strength vs. grade</div>
     <div class="stack"><div class="hint">Log bodyweight and a max hang or pull-up benchmark (below, in Benchmarks) to see this.</div></div></div>`;
   const cg=effectiveComfortableGrade();
