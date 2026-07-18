@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v33";
+const APP_VERSION = "v34";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -1058,16 +1058,37 @@ function renderPlan(){
     return `<div style="background:${bg};color:${fg};border-radius:12px;border-left:4px solid ${border};padding:12px 14px;font-size:13px;margin-bottom:8px;line-height:1.4;">${glyph}${esc(w.text)}</div>`;
   }).join("")}</div>` : "";
 
+  const pickerCard = `<div class="field">
+      <div class="stack" style="gap:0;padding:10px 14px">
+        <div id="pickerClose" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:4px">
+          <span class="flabel" style="margin:0">Choose a workout — ${esc(phase.name)}</span>
+          <span style="color:var(--faint);transform:rotate(90deg);transition:transform .15s">${I.chev}</span>
+        </div>
+        ${slots.map((s,i)=>{
+          const state = i<slot?"done":i===slot?"next":"upcoming";
+          const border=i<slots.length-1?"border-bottom:1px solid var(--line);":"";
+          const color = state==="next"?"var(--accent)":state==="done"?"var(--sub)":"var(--faint)";
+          return `<div data-picklot="${i}" style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer;${border}">
+            <span class="hicon" style="width:20px;justify-content:center;color:${color}">${typeIcon[s.type]}</span>
+            <span style="flex:1;font-size:13px;color:${state==="upcoming"?"var(--faint)":"var(--ink)"}">${esc(s.label)}</span>
+            ${state==="next"?`<span class="hint" style="color:var(--accent);margin:0">next</span>`:state==="done"?`<span style="color:var(--faint)">${I.check}</span>`:""}
+          </div>`;
+        }).join("")}
+        <div class="hint" style="margin-top:10px">Tap a workout to log it — no calendar deadlines, pick whatever fits today.</div>
+      </div>
+    </div>`;
   const upNextCard = complete ? `<div class="field">
       <div class="stack"><div class="hint">Cycle complete. Reassess limiter, restart strength block.</div></div></div>`
+    : ui.planSlotsOpen ? pickerCard
     : `<div class="field">
       <div class="stack">
-        <div style="display:flex;align-items:center;gap:12px">
+        <div id="upNextTap" style="display:flex;align-items:center;gap:12px;cursor:pointer">
           <span class="hicon">${typeIcon[next.type]}</span>
           <div style="flex:1">
             <div style="font-weight:800;font-size:15px">${esc(next.label)}</div>
             ${next.detail?`<div class="hint" style="margin-top:4px">${esc(next.detail)}</div>`:""}
           </div>
+          <span style="color:var(--faint)">${I.chev}</span>
         </div>
         ${insight?`<div class="hint" style="color:var(--accent);font-weight:600">${esc(insight)}</div>`:""}
         <button class="btn2" id="logToday" style="margin:0">${I.plus}Log this session</button>
@@ -1116,23 +1137,7 @@ function renderPlan(){
     ${mobilityRow}
     ${renderHeatmap()}
     ${warnBlock}
-    ${phaseCard}
-    <div class="field">
-      <div class="hint"><span id="planSlotsToggle" style="text-decoration:underline;cursor:pointer">${ui.planSlotsOpen?"Hide":"View"} full session order for ${esc(phase.name)}</span></div>
-      ${ui.planSlotsOpen?`<div class="stack" style="gap:0;padding:6px 14px;margin-top:10px">
-        ${slots.map((s,i)=>{
-          const state = i<slot?"done":i===slot?"next":"upcoming";
-          const border=i<slots.length-1?"border-bottom:1px solid var(--line);":"";
-          const color = state==="next"?"var(--accent)":state==="done"?"var(--sub)":"var(--faint)";
-          return `<div data-setslot="${i}" style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;${border}">
-            <span style="width:22px;color:${color}">${state==="done"?I.check:""}</span>
-            <span style="flex:1;font-size:13px;color:${state==="upcoming"?"var(--faint)":"var(--ink)"}">${esc(s.label)}</span>
-            ${state==="next"?`<span class="hint" style="color:var(--accent)">next</span>`:""}
-          </div>`;
-        }).join("")}
-      </div>
-      <div class="hint" style="margin-top:8px">No calendar deadlines. Advances on log, not date. Tap a row to reorder.</div>`:""}
-    </div>`;
+    ${phaseCard}`;
 }
 
 function renderLog(){
@@ -2013,13 +2018,22 @@ function wire(){
     ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
     ui.tab="log"; render();
   };
-  const pst=$main.querySelector("#planSlotsToggle"); if(pst) pst.onclick=()=>{ ui.planSlotsOpen=!ui.planSlotsOpen; render(); };
+  const unt=$main.querySelector("#upNextTap"); if(unt) unt.onclick=()=>{ ui.planSlotsOpen=true; render(); };
+  const pkc=$main.querySelector("#pickerClose"); if(pkc) pkc.onclick=()=>{ ui.planSlotsOpen=false; render(); };
   const pit=$main.querySelector("#phaseInfoTap"); if(pit) pit.onclick=()=>{ ui.phaseInfoOpen=!ui.phaseInfoOpen; render(); };
-  $main.querySelectorAll("[data-setslot]").forEach(row=>row.onclick=()=>{
-    const i=+row.dataset.setslot, cur=currentProgress();
+  // workout picker — choosing a slot both repositions the plan pointer to it and jumps
+  // straight into the Log tab pre-filled for that slot's type/protocol/gradeRole.
+  $main.querySelectorAll("[data-picklot]").forEach(row=>row.onclick=()=>{
+    const i=+row.dataset.picklot, cur=currentProgress();
+    const chosen=cur.slots[i];
     setProgressUndo();
     store.progress={phaseIdx:cur.phaseIdx, weekInPhase:cur.weekInPhase, slot:i};
-    save(); render();
+    save();
+    ui.planSlotsOpen=false;
+    ui.editingId=null;
+    ui.form=freshForm(chosen.type, chosen.protocol, chosen.gradeRole);
+    ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
+    ui.tab="log"; render();
   });
   // manual phase/week override
   const pp=$main.querySelector('[data-planpos="toggle"]'); if(pp) pp.onclick=()=>{ ui.planPosOpen=true; render(); };
