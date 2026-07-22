@@ -27,22 +27,22 @@ This last point matters most for sequencing. The literature on detraining and re
 
 ## Training cadence and equipment constraints
 
-Climbing happens 3x/week — a real, fixed cadence — with hangboard and lifting on whatever other days fit. The app stays session-driven and day-agnostic (no weekday text anywhere in the plan or its slot labels — see "Resolved decisions" below); the constraints that actually shape session placement are equipment-based, not calendar-based:
+Climbing happens 3x/week — a real, fixed cadence — with lift on whatever other day fits. The app stays session-driven and day-agnostic (no weekday text anywhere in the plan or its slot labels — see "Resolved decisions" below); the constraints that actually shape session placement are equipment- and athlete-driven, not calendar-based:
 
+- **Max-hang-protocol testing (true max effort or a lighter "maintenance" load) and max-weight pull-up testing are not app-prescribed workouts at all.** This athlete tests both on their own on weekends and logs the results via Benchmarks (Progress tab) — the app's own self-entry flow for exactly this. No hangboard-max slot appears anywhere in the weekly templates.
 - **Lift is always its own standalone session** — never framed as happening the same visit as a climb. It needs its own day.
-- **Max-hang-protocol sessions are home-only** for this athlete (including phases where the protocol is technically "max" but the intent is maintenance, not a fresh PR attempt) — so they're also standalone, never paired with a climbing session, since climbing happens elsewhere.
-- **Repeater-protocol hang sessions can be done at home or at the gym**, so they stay flexible — the plan keeps a repeater slot adjacent to a climb slot as an optional same-session pairing, but nothing requires combining them.
+- **Repeater-protocol hang sessions can be done at home or at the gym**, so they stay flexible — the plan keeps a repeater slot adjacent to a climb slot as an optional same-session pairing, but nothing requires combining them. Repeaters are a different, submax stimulus (tendon durability) from max-hang testing, which is why they're still a prescribed slot.
 
-Every phase's slot order still keeps finger-intensive sessions (any hang, or a climb targeting RPE≥9) non-adjacent wherever the composition allows, so that logging in order naturally spaces them ~48h+ apart even without weekday anchoring:
+With max-hang testing removed from the weekly templates, every phase's slot order keeps finger-intensive sessions (any hang, or a climb targeting RPE≥9) non-adjacent — and every phase now manages that cleanly, including Performance, which previously couldn't:
 
 | Phase | Finger-intensive slots | Spacing (slots between) |
 |---|---|---|
 | Reconditioning | 2× hang (repeater) | 2 non-finger slots between each |
-| Strength Base | max hang, repeater hang, limit climb | 1 non-finger slot between each |
-| Power | limit climb, maintenance hang | 1 non-finger slot between; 2 on the wrap |
-| Performance | project climb, maintenance hang, project climb | 1 slot between two of the three; the third pair (2 project days) lands adjacent on the cycle wrap — this phase's 5-slot composition (2 project climbs + 1 hang, only 2 non-finger slots to separate them) makes full separation impossible without added volume, so this is disclosed rather than glossed over. |
+| Strength Base | repeater hang, limit climb | 1 non-finger slot between each |
+| Power | limit climb (only finger-intensive slot) | trivially clear — nothing to space against |
+| Performance | project climb, project climb | alternated with the 2 non-finger slots (lift, volume/technique) so neither project day is ever adjacent to the other |
 
-Sources: Schweizer & Hudek (2011); Mundry, Steinmetz, Atkinson, Schilling, Schöffl, Saul (2021) — see "Sources referenced" below. Hangboard-before/after-climbing sequencing (where a repeater is paired same-session) is likewise research-backed: max hangs go **before** climbing on fresh fingers (fatigued tendons are the specific injury-risk mechanism); repeaters go **after**, since they're submax and fine once warmed up (omaharockgym.com, "The Best Time to Hangboard: Before or After Climbing?"; thehangboard.com, "Hangboard Training After Climbing"). Since max hangs are now always standalone for this athlete, that before/after distinction only still applies to the optional repeater+climb pairing.
+Sources: Schweizer & Hudek (2011); Mundry, Steinmetz, Atkinson, Schilling, Schöffl, Saul (2021) — see "Sources referenced" below. Hangboard-before/after-climbing sequencing still applies to the one remaining same-session pairing (a repeater slot next to a climb slot): repeaters go **after** climbing — submax, fine once warmed up (omaharockgym.com, "The Best Time to Hangboard: Before or After Climbing?"; thehangboard.com, "Hangboard Training After Climbing"). The before-climbing / fresh-fingers guidance those sources give for *max* hangs no longer applies to any plan slot, since max-hang testing isn't one anymore.
 
 ## Phase structure (26-week roadmap, ~6 months)
 
@@ -57,22 +57,22 @@ This is aggressive but realistic *given the "rebuilding" starting point* — som
 
 ### Phase 1 — Strength Base (8 session-weeks)
 **Goal:** build the max-strength ceiling (fingers + pull) that later power work will convert into hard moves.
-- Climbing: 3 sessions/session-week — two volume days (one of them volume/ARC) and one project/limit session at V5-V6 — kept hangboard/lift-free to stay the week's freshest-finger day.
-- Hangboard: **max hangs** (10s hang / 3 min rest x 5-6 sets, near-max effort on a ~20mm edge — Eva López / Lattice protocol), **home only, standalone session**, 1x/session-week. Plus 1 repeater session/session-week (home or gym, optionally same-session as a volume climb) for tendon durability.
+- Climbing: 3 sessions/session-week — two volume days (one of them volume/ARC) and one project/limit session at V5-V6.
+- Hangboard: 1 repeater session/session-week (home or gym, optionally same-session as a volume climb) for tendon durability. Max-hang strength testing is self-managed on weekends (see "Training cadence and equipment constraints" above) — not a prescribed slot.
 - Weights: **1 standalone session/session-week** — see Lift Day Protocol below, progressive overload.
 - Deload every 4th session-week: halve hangboard/lift volume, keep climbing light.
 
 ### Phase 2 — Power & Power-Endurance (8 session-weeks)
 **Goal:** convert raw strength into climbing-specific power (dynamic movement, campus-board coordination) and the ability to link hard moves (power-endurance).
-- Climbing: 3 sessions/session-week — a limit-bouldering session (hangboard/lift-free), a power-endurance session (4x4s or linked circuits), and a volume/campus day.
-- Hangboard: 1 maintenance session/session-week, **home only, standalone session** (still a max-hang protocol at lighter load — not chasing new PRs, but still needs fresh fingers).
+- Climbing: 3 sessions/session-week — a limit-bouldering session, a power-endurance session (4x4s or linked circuits), and a volume/campus day.
+- Hangboard: self-managed on weekends, not a prescribed slot (see above) — this phase's plan only maintains what Strength Base built, so there's no repeater slot here either.
 - Weights: **1 standalone session/session-week** — see Lift Day Protocol below, maintenance load, no new PRs.
 - Deload every 4th session-week as before.
 
 ### Phase 3 — Performance / Send Phase (6 session-weeks)
 **Goal:** target grade progress — V6→V7→V8 attempts, technique refinement on personal weaknesses, tapering physical training volume so climbing performance peaks.
-- Climbing: 3 sessions/session-week, mostly projecting, 1 volume/technique day. Both project days are hangboard/lift-free.
-- Hangboard: 1 maintenance session/session-week, short, **home only, standalone session**.
+- Climbing: 3 sessions/session-week, mostly projecting, 1 volume/technique day.
+- Hangboard: self-managed on weekends, not a prescribed slot (see above).
 - Weights: **1 standalone session/session-week** — see Lift Day Protocol below, reduced volume.
 - Reassess: if stalled at a grade for 3+ session-weeks, that grade is your new "Phase 1 target" — cycle back into a shorter (6-8 session-week) strength block focused on the specific limiter (finger strength vs power vs endurance) before resuming projecting.
 
@@ -118,12 +118,12 @@ Unlike the Lift/Hang/Climb rotation, mobility isn't part of the session-week slo
 
 ## Session order per phase
 
-The app cycles through these lists once per session-week; order is a guide, not a hard sequence — log whatever type you actually did and it still advances. No weekday is attached to any slot — place each one on whichever of your training days fits, subject to the equipment constraints above (lift and max-hang are standalone; repeaters can optionally pair with the climb slot next to them, done same-session, home or gym).
+The app cycles through these lists once per session-week; order is a guide, not a hard sequence — log whatever type you actually did and it still advances. No weekday is attached to any slot — place each one on whichever of your training days fits, subject to the equipment constraints above (lift is standalone; repeaters can optionally pair with the climb slot next to them, done same-session, home or gym). Max-hang and max-pull-up testing aren't in these lists at all — self-managed on weekends, logged via Benchmarks.
 
 **Reconditioning:** Climb (volume) → Hang (repeaters) → Climb (volume) → Climb (ARC/easy) → Hang (repeaters) → Lift (light)
-**Strength Base:** Hang (max hangs) → Climb (volume) → Hang (repeaters) → Climb (volume/ARC) → Climb (project/limit) → Lift (build)
-**Power & Power-Endurance:** Climb (limit) → Climb (power-endurance) → Hang (maintenance) → Lift (maintain) → Climb (volume/campus)
-**Performance / Send:** Climb (project) → Lift (maintain) → Hang (maintenance) → Climb (volume/technique) → Climb (project)
+**Strength Base:** Climb (volume) → Hang (repeaters) → Climb (volume/ARC) → Climb (project/limit) → Lift (build)
+**Power & Power-Endurance:** Climb (limit) → Climb (power-endurance) → Lift (maintain) → Climb (volume/campus)
+**Performance / Send:** Climb (project) → Lift (maintain) → Climb (project) → Climb (volume/technique)
 
 ## Benchmarks to track in-app
 
@@ -201,7 +201,7 @@ This is real autoregulation (Source: standard resistance-training autoregulation
 - Dr. Andreo Spina — Functional Range Conditioning (FRC), source for the CARs (controlled articular rotations) protocol used in the daily mobility routine's shoulder drill; widely adopted across strength & mobility coaching, not a peer-reviewed source.
 - Mundry, S., Steinmetz, G., Atkinson, E.J., Schilling, A.F., Schöffl, V.R., Saul, D. (2021). *Hangboard training in advanced climbers: A randomized controlled trial.* Scientific Reports 11:13530. Same research group as the Saul et al. (2019) citation above; this trial's own hangboard protocol ran 2-3 sessions/week, not back-to-back — cited for the fixed Mon/Wed/Sat schedule and finger recovery spacing.
 - Eric J. Hörst — "Training Cafe" episode #34, trainingforclimbing.com (in addition to *Training for Climbing*, already cited above). Source for "3-4 climbing-specific training days per week and one complete rest day per week" — the fixed 3x/week (Mon/Wed/Sat) schedule sits within that range.
-- "The Best Time to Hangboard: Before or After Climbing?" (omaharockgym.com) and "Hangboard Training After Climbing" (thehangboard.com) — current climbing-coaching sources, not peer-reviewed, but consistent with each other: max hangs before climbing (fresh fingers; fatigued tendons are the specific injury-risk mechanism), repeaters/maintenance hangs after (submax, fine once warm). Basis for the within-visit sequencing in the fixed schedule above.
+- "The Best Time to Hangboard: Before or After Climbing?" (omaharockgym.com) and "Hangboard Training After Climbing" (thehangboard.com) — current climbing-coaching sources, not peer-reviewed, but consistent with each other: max hangs before climbing (fresh fingers; fatigued tendons are the specific injury-risk mechanism), repeaters after (submax, fine once warm). Basis for repeaters going after climbing in the one remaining same-session pairing — max-hang testing itself is no longer a plan slot (self-managed on weekends), so its before-climbing guidance no longer applies to anything in the weekly templates.
 
 **Caveat:** several of the above (Philippe et al., Schweizer & Hudek) are cited from memory of the general findings/thrust of published climbing-science literature — verify exact figures/years before quoting them anywhere user-facing. The protocols (López repeaters, Bechtel standards, Hörst/Anderson periodization) are well-established and widely reproduced in the climbing training community, but treat this doc as a first draft to sanity-check, not a peer-reviewed citation list.
 

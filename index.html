@@ -300,21 +300,19 @@ const LIFT_FULL = {
   perform:  "6 lifts. Reduced volume. Maintenance load only.",
 };
 /* {{grade}} is resolved at render time from your logged send history (see gradeRangeFor). */
-/* Climbing is fixed at 3x/week (the athlete's own real schedule) with hang/lift on whatever
-   other days fit — the app stays session-driven/day-agnostic (no weekday text in labels).
-   Three placement rules, driven by real constraints, not calendar guesses:
-   - Lift is always its own standalone session — never framed as "same visit" as a climb.
-   - Max-hang protocol sessions (protocol:"max", whether a true max-effort day or a lighter
-     "maintenance" one) are home-only for this athlete, so they're also standalone, never
-     paired with a climb slot.
-   - Repeater-protocol hang sessions can be done at home OR the gym, so they're flexible —
-     kept adjacent to a climb slot as an optional same-session pairing.
-   Every phase's slot order still keeps finger-intensive slots (any hang, or a climb
-   targeting RPE≥9) non-adjacent wherever the composition allows — see TRAINING_PLAN.md
-   "Finger recovery spacing" for the full audit and sources (Schweizer & Hudek 2011;
-   Mundry, Steinmetz, Atkinson, Schilling, Schöffl, Saul 2021). Performance phase can't
-   avoid one adjacency (2 project climbs + 1 hang sharing only 5 slots) — documented
-   honestly there rather than overclaiming a spacing the composition can't support. */
+/* Climbing is fixed at 3x/week (the athlete's own real schedule) with lift on whatever
+   other day fits — the app stays session-driven/day-agnostic (no weekday text in labels).
+   Max-hang-protocol sessions (true max-effort or lighter "maintenance" load — same protocol
+   field either way) and max-weight pull-up testing are NOT plan slots at all: the athlete
+   tests both on their own on weekends and logs them via Benchmarks (Progress tab), so the
+   app doesn't prescribe them as a workout to pick. Repeater-protocol hang sessions remain,
+   since they're a different, submax stimulus (tendon durability, not a max-strength test) —
+   they can be done at home or the gym, kept adjacent to a climb slot as an optional
+   same-session pairing. Lift is always its own standalone session — never framed as "same
+   visit" as a climb. Every phase's slot order keeps finger-intensive slots (any hang, or a
+   climb targeting RPE≥9) non-adjacent — see TRAINING_PLAN.md "Finger recovery spacing" for
+   the full audit and sources (Schweizer & Hudek 2011; Mundry, Steinmetz, Atkinson,
+   Schilling, Schöffl, Saul 2021). */
 const WEEKLY_TEMPLATES = {
   recon:[
     {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
@@ -331,8 +329,6 @@ const WEEKLY_TEMPLATES = {
       full:LIFT_FULL.recon+" Own session — not paired with a climbing day."},
   ],
   strength:[
-    {type:"hang", label:"Hangboard — max hangs (raw strength)", detail:"20mm · {{load}} · 10s/3min×5–6",protocol:"max", targetRpe:9,
-      full:"Edge: 20mm. Load: {{load}} (near-max). Protocol: 10s hang / 3min rest × 5-6 sets. Full rest required, no shortcuts. Home only, own session — never combine with a climbing day: max hangs need fully fresh fingers, and fatigued tendons are the specific injury-risk mechanism."},
     {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · footwork drills", targetRpe:6, gradeRole:"volume",
       full:"Grade: {{grade}}. Volume: moderate. Include 2-3 footwork-drill problems. Warm up before harder attempts."},
     {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"{{load}} · repeaters + core",protocol:"repeater", targetRpe:6,
@@ -340,17 +336,15 @@ const WEEKLY_TEMPLATES = {
     {type:"climb",label:"Climb — volume / ARC (mileage)", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Active recovery / mileage."},
     {type:"climb",label:"Climb — project/limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
-      full:"Grade: {{grade}}. Volume: low. Rest: full (3-5min) between attempts. Movement quality not required. No hangboard or lift same-session — keep this day's fingers as fresh as the max-hang day's."},
+      full:"Grade: {{grade}}. Volume: low. Rest: full (3-5min) between attempts. Movement quality not required."},
     {type:"lift", label:"Lift — build",  detail:"6 lifts · progressive overload", targetRpe:7,
       full:LIFT_FULL.strength+" Own session — not paired with a climbing or hangboard day."},
   ],
   power:[
     {type:"climb",label:"Climb — limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
-      full:"Grade: {{grade}}. Volume: low. Rest: full between attempts. No hangboard same-session — keep this day's fingers fresh."},
+      full:"Grade: {{grade}}. Volume: low. Rest: full between attempts."},
     {type:"climb",label:"Climb — power-endurance (linking hard moves)", detail:"4x4s · {{grade}}", targetRpe:8, gradeRole:"powerEnd",
       full:"Grade: {{grade}}. Protocol: 4x4s or linked circuits. Rest: minimal between attempts."},
-    {type:"hang", label:"Hangboard — maintenance (hold current strength)", detail:"1×/week · {{load}}",protocol:"max", targetRpe:7,
-      full:"Load: {{load}}. Sets: 3-4. Maintenance only, no new PRs. Home only, own session — this is still a max-hang protocol even at maintenance load, so keep it off climbing days."},
     {type:"lift", label:"Lift — maintain",  detail:"6 lifts · hold current load", targetRpe:6,
       full:LIFT_FULL.power+" Own session — not paired with a climbing or hangboard day."},
     {type:"climb",label:"Climb — volume / campus (mileage)", targetRpe:5, gradeRole:"volume",
@@ -358,15 +352,13 @@ const WEEKLY_TEMPLATES = {
   ],
   perform:[
     {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
-      full:"Grade: {{grade}}. Rest: full between burns. No hangboard same-session — keep this day's fingers fresh."},
+      full:"Grade: {{grade}}. Rest: full between burns."},
     {type:"lift", label:"Lift — maintain",  detail:"6 lifts · reduced volume", targetRpe:5,
-      full:LIFT_FULL.perform+" Own session — not paired with a climbing or hangboard day."},
-    {type:"hang", label:"Hangboard — maintenance (hold current strength)", detail:"{{load}} · short session",protocol:"max", targetRpe:6,
-      full:"Load: {{load}}. Duration: short. Maintenance only, no grinding. Home only, own session — still a max-hang protocol at maintenance load, so keep it off climbing days."},
+      full:LIFT_FULL.perform+" Own session — not paired with a climbing day."},
+    {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
+      full:"2nd project session this week. Grade: {{grade}}. Rest: full between burns."},
     {type:"climb",label:"Climb — volume / technique (mileage)", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Volume or technique review (film footwork/hips on project crux)."},
-    {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
-      full:"2nd project session this week. Grade: {{grade}}. Rest: full between burns. Only 2 non-finger slots share this 5-slot week with 3 finger-intensive ones, so this session lands right after the other project day on the cycle wrap — the one spacing tradeoff this phase's composition can't avoid without added volume."},
   ],
 };
 function slotsOf(phaseKey){ return WEEKLY_TEMPLATES[phaseKey]||WEEKLY_TEMPLATES.strength; }
@@ -934,7 +926,7 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false, loadError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,trends:false,benchmarks:false,recovery:false,strength:false,data:false}, celebrate:null, timer:null };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,trends:false,benchmarks:false,recovery:false,strength:false,data:false}, celebrate:null, timer:null, selectedSlot:null };
 let mobilityTimerHandle=null;
 function clearMobilityTimerHandle(){ if(mobilityTimerHandle){ clearInterval(mobilityTimerHandle); mobilityTimerHandle=null; } }
 function resetMobilityTimer(){ clearMobilityTimerHandle(); ui.timer=null; }
@@ -1080,6 +1072,10 @@ function renderPlan(){
   const cur=currentProgress();
   const {phase,slots,slot,weekInPhase,absWeek,isDeload,gate,held,cap}=cur;
   const next=resolveSlotText(cur.next);
+  // A manual pick from the workout list is purely a display choice — it changes what the
+  // card shows and what "Log this session" pre-fills, but never touches store.progress
+  // (which day of the plan you're actually on).
+  const displaySlot = (ui.selectedSlot!=null && slots[ui.selectedSlot]) ? resolveSlotText(slots[ui.selectedSlot]) : next;
   const warnings=computeGuardrails(store);
   const pct=Math.min(100,Math.round((absWeek/TOTAL_WEEKS)*100));
   const complete = (store.progress||{}).completedCycle;
@@ -1095,7 +1091,7 @@ function renderPlan(){
     : `Log a session today to start a streak`;
 
   const typeIcon={climb:I.climb,hang:I.hang,lift:I.lift,mobility:I.mobility};
-  const insight=sessionInsight(next);
+  const insight=sessionInsight(displaySlot);
   const mobilityDoneToday=realSessions().some(s=>s.type==="mobility"&&s.date===todayStr());
   const mobilityRow=`<div class="field">
     <div class="liftrow" id="mobilityCard" style="cursor:pointer;
@@ -1125,16 +1121,14 @@ function renderPlan(){
           <span style="color:var(--faint);transform:rotate(90deg);transition:transform .15s">${I.chev}</span>
         </div>
         ${slots.map((s,i)=>{
-          const state = i<slot?"done":i===slot?"next":"upcoming";
           const border=i<slots.length-1?"border-bottom:1px solid var(--line);":"";
-          const color = state==="next"?"var(--accent)":state==="done"?"var(--sub)":"var(--faint)";
+          const isSelected = i===(ui.selectedSlot!=null?ui.selectedSlot:slot);
           return `<div data-picklot="${i}" style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer;${border}">
-            <span class="hicon" style="width:20px;justify-content:center;color:${color}">${typeIcon[s.type]}</span>
-            <span style="flex:1;font-size:13px;color:${state==="upcoming"?"var(--faint)":"var(--ink)"}">${esc(s.label)}</span>
-            ${state==="next"?`<span class="hint" style="color:var(--accent);margin:0">next</span>`:state==="done"?`<span style="color:var(--faint)">${I.check}</span>`:""}
+            <span class="hicon" style="width:20px;justify-content:center;color:${isSelected?"var(--ink)":"var(--faint)"}">${typeIcon[s.type]}</span>
+            <span style="flex:1;font-size:13px;color:${isSelected?"var(--ink)":"var(--faint)"}">${esc(s.label)}</span>
           </div>`;
         }).join("")}
-        <div class="hint" style="margin-top:10px">Tap a workout to log it — no calendar deadlines, pick whatever fits today.</div>
+        <div class="hint" style="margin-top:10px">Pick whatever you're doing — this doesn't change your plan position.</div>
       </div>
     </div>`;
   const upNextCard = complete ? `<div class="field">
@@ -1143,10 +1137,10 @@ function renderPlan(){
     : `<div class="field">
       <div class="stack">
         <div id="upNextTap" style="display:flex;align-items:center;gap:12px;cursor:pointer">
-          <span class="hicon">${typeIcon[next.type]}</span>
+          <span class="hicon">${typeIcon[displaySlot.type]}</span>
           <div style="flex:1">
-            <div style="font-weight:800;font-size:15px">${esc(next.label)}</div>
-            ${next.detail?`<div class="hint" style="margin-top:4px">${esc(next.detail)}</div>`:""}
+            <div style="font-weight:800;font-size:15px">${esc(displaySlot.label)}</div>
+            ${displaySlot.detail?`<div class="hint" style="margin-top:4px">${esc(displaySlot.detail)}</div>`:""}
           </div>
           <span style="color:var(--faint)">${I.chev}</span>
         </div>
@@ -2067,6 +2061,7 @@ function commitSave(){
   ui.editingId=null;
   ui.form=freshForm(keepType); ui.form.date=keepDate;
   ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
+  ui.selectedSlot=null;
   ui.flash=true; render();
   setTimeout(()=>{ ui.flash=false; ui.celebrate=null; render(); },ui.celebrate?2800:2000);
 }
@@ -2177,9 +2172,10 @@ function wire(){
   });
   // plan tab
   const lt=$main.querySelector("#logToday"); if(lt) lt.onclick=()=>{
-    const next=currentProgress().next;
+    const cur=currentProgress();
+    const chosen = (ui.selectedSlot!=null && cur.slots[ui.selectedSlot]) ? cur.slots[ui.selectedSlot] : cur.next;
     ui.editingId=null;
-    ui.form=freshForm(next.type, next.protocol, next.gradeRole);
+    ui.form=freshForm(chosen.type, chosen.protocol, chosen.gradeRole);
     ui.gradeExpanded=false; ui.logMoreOpen=false;
     ui.tab="log"; render();
   };
@@ -2194,11 +2190,14 @@ function wire(){
   const pit=$main.querySelector("#phaseInfoTap"); if(pit) pit.onclick=()=>{ ui.phaseInfoOpen=!ui.phaseInfoOpen; render(); };
   // workout picker — choosing a slot repositions the plan pointer to it and updates the
   // Up Next card in place; it does not navigate to the Log tab.
+  // Choosing a workout here is just "what am I doing right now" — it opens the Log tab
+  // pre-filled for that slot's type/protocol/gradeRole. It does not touch store.progress:
+  // picking an option isn't the same as declaring which day of the plan you're on.
+  // Picking a workout here is a display-only choice — it just changes what the Up Next
+  // card shows and what "Log this session" will pre-fill. It never touches store.progress
+  // and never navigates to the Log tab on its own.
   $main.querySelectorAll("[data-picklot]").forEach(row=>row.onclick=()=>{
-    const i=+row.dataset.picklot, cur=currentProgress();
-    setProgressUndo();
-    store.progress={phaseIdx:cur.phaseIdx, weekInPhase:cur.weekInPhase, slot:i};
-    save();
+    ui.selectedSlot=+row.dataset.picklot;
     ui.planSlotsOpen=false;
     render();
   });
@@ -2209,13 +2208,13 @@ function wire(){
     const dir=+b.dataset.phasestep, cur=currentProgress();
     const newIdx=Math.max(0,Math.min(PHASES.length-1,cur.phaseIdx+dir));
     setProgressUndo();
-    store.progress={phaseIdx:newIdx, weekInPhase:1, slot:0}; save(); render();
+    store.progress={phaseIdx:newIdx, weekInPhase:1, slot:0}; ui.selectedSlot=null; save(); render();
   });
   $main.querySelectorAll("[data-weekstep]").forEach(b=>b.onclick=()=>{
     const dir=+b.dataset.weekstep, cur=currentProgress();
     const newWk=Math.max(1,Math.min(cur.phase.weeks,cur.weekInPhase+dir));
     setProgressUndo();
-    store.progress={phaseIdx:cur.phaseIdx, weekInPhase:newWk, slot:0}; save(); render();
+    store.progress={phaseIdx:cur.phaseIdx, weekInPhase:newWk, slot:0}; ui.selectedSlot=null; save(); render();
   });
   const up=$main.querySelector("#undoProgress"); if(up) up.onclick=()=>{
     if(ui.progressUndo){ store.progress={...ui.progressUndo.progress}; ui.progressUndo=null; save(); render(); }
