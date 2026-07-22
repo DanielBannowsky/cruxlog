@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v46";
+const APP_VERSION = "v41";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -1711,28 +1711,36 @@ function renderHeatmap(){
     }
     const hasMobility=d.types.includes("mobility");
     const others=d.types.filter(t=>t!=="mobility");
-    const hStrips=(list,clip)=>{
+    const hStrips=(list)=>{
       const stripH=cell/list.length;
-      const rects=list.map((t,ti)=>`<rect x="${x}" y="${(y+ti*stripH).toFixed(1)}" width="${cell}" height="${stripH.toFixed(1)}" fill="${TYPE_COLORS[t]}"/>`).join("");
-      return clip ? `<g clip-path="url(#${clip})">${rects}</g>` : rects;
+      return list.map((t,ti)=>`<rect x="${x}" y="${(y+ti*stripH).toFixed(1)}" width="${cell}" height="${stripH.toFixed(1)}" fill="${TYPE_COLORS[t]}"/>`).join("");
     };
     let fill;
     if(!hasMobility){
       fill = others.length===1
-        ? `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="${TYPE_COLORS[others[0]]}"/>`
+        ? `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" fill="${TYPE_COLORS[others[0]]}"/>`
         : hStrips(others);
     } else if(others.length===0){
-      fill = `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="${TYPE_COLORS.mobility}"/>`;
+      fill = `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" fill="${TYPE_COLORS.mobility}"/>`;
     } else if(others.length===1){
       fill = `<polygon points="${x},${y} ${x2},${y} ${x},${y2}" fill="${TYPE_COLORS.mobility}"/>
         <polygon points="${x2},${y} ${x2},${y2} ${x},${y2}" fill="${TYPE_COLORS[others[0]]}"/>`;
     } else {
-      const clipId=`hmclip${i}`;
+      const triClip=`hmclipTri${i}`;
       fill = `<polygon points="${x},${y} ${x2},${y} ${x},${y2}" fill="${TYPE_COLORS.mobility}"/>
-        <clipPath id="${clipId}"><polygon points="${x2},${y} ${x2},${y2} ${x},${y2}"/></clipPath>
-        ${hStrips(others,clipId)}`;
+        <clipPath id="${triClip}"><polygon points="${x2},${y} ${x2},${y2} ${x},${y2}"/></clipPath>
+        <g clip-path="url(#${triClip})">${hStrips(others)}</g>`;
     }
-    return `<g ${strokeAttr}><rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="none" ${strokeAttr}/>${fill}${title}</g>`;
+    // Every cell (whatever its internal split) gets clipped to the same rounded-rect shape,
+    // so corners look consistent whether a day is a solid fill, a half-split, or subdivided
+    // further — the fill shapes themselves (rects/polygons/strips) are always sharp-cornered.
+    const clipId=`hmclip${i}`;
+    return `<g ${strokeAttr}>
+      <rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="none" ${strokeAttr}/>
+      <clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3"/></clipPath>
+      <g clip-path="url(#${clipId})">${fill}</g>
+      ${title}
+    </g>`;
   }).join("");
   return `<div class="field">
     <div class="stack">
