@@ -23,24 +23,39 @@ This last point matters most for sequencing. The literature on detraining and re
 5. **Antagonist and "prehab" work (pushing muscles, wrist extensors, rotator cuff) meaningfully reduces overuse injury risk** in climbers whose training is otherwise almost entirely pulling. Source: commonly cited in climbing physio literature, e.g. Schöffl et al. on climbing injury epidemiology; standard recommendation across Hörst and Anderson/Anderson.
 6. **Weighted pull-ups / general strength training raises the strength ceiling that power and power-endurance work draws from**, especially useful for a climber rebuilding a strength base rather than a technique-only plateau. Source: Anderson & Anderson, *Rock Climber's Training Manual* (their entire "Foundational Training" phase is built on this).
 7. **Grade jumps V3→V8 require *both* higher max strength/power ceiling *and* better movement economy (technique)** — pure strength training without limit bouldering/technique work under-delivers, and vice versa. Source: Saul et al. (2019) systematic review — technical skill and physical capacity both show independent correlation with climbing performance; neither alone fully explains grade.
-8. **48+ hours between high-intensity finger-loading sessions**, tendons remodel more slowly than muscle. Source: Schweizer & Hudek (2011), tendon load research in climbers; general connective-tissue recovery literature (~48-72h for high-load finger work vs ~24-48h for muscular recovery).
+8. **48+ hours between high-intensity finger-loading sessions**, tendons remodel more slowly than muscle. Source: Schweizer & Hudek (2011), tendon load research in climbers; general connective-tissue recovery literature (~48-72h for high-load finger work vs ~24-48h for muscular recovery). Corroborated by Mundry, Steinmetz, Atkinson, Schilling, Schöffl, Saul (2021), "Hangboard training in advanced climbers: A randomized controlled trial," *Scientific Reports* 11:13530 — the same research group as source #2/#7 above — whose hangboard protocol ran 2-3 sessions/week, not back-to-back. **This plan's own session order previously violated this** (see "Finger recovery spacing" below) — fixed by reordering every phase's slots and adding a real rest slot to every session-week, per Eric Hörst's own published training-frequency guidance (source #1 above; "Training Cafe" episode #34, trainingforclimbing.com): 3-4 climbing-specific training days per week **and one complete rest day per week**, not zero.
 
 ## Phase structure (26-week roadmap, ~6 months)
 
 This is aggressive but realistic *given the "rebuilding" starting point* — someone truly new to climbing wouldn't compress this. Re-assess and likely extend Phase 2/3 if grade progress stalls; that's expected feedback, not failure.
+
+### Finger recovery spacing (every phase includes a rest day; slot order fixed)
+
+An audit of every phase's slot order against the app's own finger-intensity definition (any hangboard session, or a climbing session targeting RPE≥9) found the plan wasn't actually honoring its own 48h rule (guiding principle #8 above):
+
+| Phase | Finger-intensive slots/session-week | Worst gap, trained daily (before fix) |
+|---|---|---|
+| Reconditioning | 2× hangboard | 48h (no margin) |
+| Strength Base | max hang, repeater hang, limit climb | 48h everywhere, no margin |
+| Power | limit climb, maintenance hang | **adjacent — 24h** |
+| Performance | project climb, maintenance hang, project climb | **adjacent, twice — 24h** |
+
+Two structural fixes, applied to every phase below and in "Session order per phase": every phase's slots are reordered so no two finger-intensive sessions are back-to-back (minimum 48h gap, 72h+ where the session composition allows), and **every phase now includes one real rest slot per session-week** — no climbing, hangboard, or lifting — implementing Eric Hörst's own published guidance of one complete rest day per week (source #1/#8 above), which the plan previously had zero of. The Performance phase's composition (2 project days + 1 hang in the same 6 slots) can't reach 72h everywhere without cutting volume the athlete profile doesn't call for; its worst gap stays at the 48h floor rather than overclaiming a number the slot count can't support.
 
 ### Phase 0 — Reconditioning (4 session-weeks)
 **Goal:** rebuild tendon tolerance, general work capacity, and movement fluency before loading anything near-max.
 - Climbing: 3 sessions/session-week, volume-focused. V1–V4 — up to your comfortable ceiling is fine, the constraint is volume/footwork focus and no *limit* attempts, not an arbitrarily low grade cap. High volume, easy-to-moderate angles, focus on precise footwork and quiet hands. One of these is ARC-style (Aerobic Restoration & Capillarity, per Hörst) traversing/easy bouldering for 20-30 min continuous movement.
 - Hangboard: **repeaters only**, moderate edge (~20mm), bodyweight, Eva López beginner protocol (7s hang / 3s rest x 6, 3 min between sets, 2 sets per grip type), 2 sessions/session-week, never on consecutive sessions.
 - Weights: **1 session/session-week** — see Lift Day Protocol below, light load.
+- **Rest: 1 full day/session-week** (this phase's whole point is tendon reconditioning, so its two hangboard sessions end up furthest apart of any phase — 3+ slots / 72-96h+ — see "Finger recovery spacing" above).
 - No limit bouldering, no max hangs, no campus board this phase.
 
 ### Phase 1 — Strength Base (8 session-weeks)
 **Goal:** build the max-strength ceiling (fingers + pull) that later power work will convert into hard moves.
-- Climbing: 3 sessions/session-week — two volume days (V1-V5, one of them volume/ARC), and one project/limit session at V5-V6 (above your comfortable V4 ceiling — movement is allowed to be ugly, goal is exposure to harder holds/angles, not sends), scheduled last after both volume days so it lands on fresher tissue.
+- Climbing: 3 sessions/session-week — two volume days (V1-V5, one of them volume/ARC), and one project/limit session at V5-V6 (above your comfortable V4 ceiling — movement is allowed to be ugly, goal is exposure to harder holds/angles, not sends), scheduled last so it lands on fresher tissue.
 - Hangboard: progress to **max hangs**, 10s hang / 3 min rest x 5-6 sets, added or removed weight to hit near-max effort on a ~20mm edge, 1 session/session-week (Eva López / Lattice max-hang protocol). Plus 1 repeater session/session-week for tendon durability.
 - Weights: **1 session/session-week** — see Lift Day Protocol below, progressive overload.
+- **Rest: 1 full day/session-week**, placed right after the max-hang session (see "Finger recovery spacing" above).
 - Deload every 4th session-week: halve hangboard/lift volume, keep climbing light.
 
 ### Phase 2 — Power & Power-Endurance (8 session-weeks)
@@ -48,6 +63,7 @@ This is aggressive but realistic *given the "rebuilding" starting point* — som
 - Climbing: 3 sessions/session-week — a limit-bouldering session (V6-V7, low volume, full rest between attempts, hard single moves), a power-endurance session (4x4s or linked boulder circuits at V4-V5, minimal rest), and a volume/campus day.
 - Hangboard: 1 maintenance session/session-week (same near-max load, fewer sets — you're not chasing new max-hang PRs this phase).
 - Weights: **1 session/session-week** — see Lift Day Protocol below, maintenance load, no new PRs.
+- **Rest: 1 full day/session-week**, placed immediately after the limit-bouldering session — this phase previously had the limit climb and the maintenance hang back-to-back with zero gap (see "Finger recovery spacing" above); the rest slot fixes that directly.
 - Deload every 4th session-week as before.
 
 ### Phase 3 — Performance / Send Phase (6 session-weeks)
@@ -55,9 +71,10 @@ This is aggressive but realistic *given the "rebuilding" starting point* — som
 - Climbing: 3 sessions/session-week, mostly projecting at V6-V8, 1 volume/technique day.
 - Hangboard: 1 maintenance session/session-week (short max-hang session), stop repeaters.
 - Weights: **1 session/session-week** — see Lift Day Protocol below, reduced volume.
+- **Rest: 1 full day/session-week**, placed right after the first project session — this phase previously had project→hang→project all back-to-back with zero gaps (see "Finger recovery spacing" above); still the tightest phase (48h floor, not 72h) given 2 project days + 1 hang share only 6 slots.
 - Reassess: if stalled at a grade for 3+ session-weeks, that grade is your new "Phase 1 target" — cycle back into a shorter (6-8 session-week) strength block focused on the specific limiter (finger strength vs power vs endurance) before resuming projecting.
 
-A "session-week" completes once you've logged every session in that phase's list, in any order, at whatever pace fits your life — it is not a fixed 7-day calendar week. See "Session order per phase" below for the exact list the app cycles through.
+A "session-week" completes once you've logged every slot in that phase's list — including its rest slot — in any order, at whatever pace fits your life; it is not a fixed 7-day calendar week. See "Session order per phase" below for the exact list the app cycles through.
 
 ## Lift Day Protocol (1x/week, every phase)
 
@@ -99,12 +116,12 @@ Unlike the Lift/Hang/Climb rotation, mobility isn't part of the session-week slo
 
 ## Session order per phase
 
-The app cycles through these lists once per session-week; order is a guide, not a hard sequence — log whatever type you actually did and it still advances.
+The app cycles through these lists once per session-week; order is a guide, not a hard sequence — log whatever type you actually did and it still advances. Rest slots don't get logged like a session — the app just has you mark them complete — and reordering here is deliberate, not arbitrary: see "Finger recovery spacing" above for why each Rest slot sits where it does.
 
-**Reconditioning:** Climb (volume) → Hang (repeaters) → Climb (volume) → Hang (repeaters) → Lift (light) → Climb (ARC/easy)
-**Strength Base:** Climb (volume) → Hang (max hangs) → Climb (volume/ARC) → Hang (repeaters) → Lift (build) → Climb (project/limit)
-**Power & Power-Endurance:** Climb (limit) → Hang (maintenance) → Climb (power-endurance) → Lift (maintain) → Climb (volume/campus)
-**Performance / Send:** Climb (project) → Hang (maintenance) → Climb (project) → Lift (maintain) → Climb (volume/technique)
+**Reconditioning:** Climb (volume) → Hang (repeaters) → Climb (ARC/easy) → **Rest** → Climb (volume) → Hang (repeaters) → Lift (light)
+**Strength Base:** Climb (volume) → Hang (max hangs) → **Rest** → Climb (volume/ARC) → Hang (repeaters) → Lift (build) → Climb (project/limit)
+**Power & Power-Endurance:** Climb (limit) → **Rest** → Hang (maintenance) → Climb (power-endurance) → Lift (maintain) → Climb (volume/campus)
+**Performance / Send:** Climb (project) → **Rest** → Hang (maintenance) → Lift (maintain) → Climb (project) → Climb (volume/technique)
 
 ## Benchmarks to track in-app
 
@@ -125,7 +142,7 @@ Other things worth logging per session so the app can flag stalls/overtraining:
 
 ## Injury-risk guardrails (implemented in the app's Plan tab)
 
-- Never max-hang or limit-boulder on consecutive calendar days (48h rule) — scans all adjacent pairs across your last 10 finger-intensity sessions, not just the single most recent pair, so a violation buried a few sessions back (e.g. after an edited/backfilled entry) still gets caught.
+- Never max-hang or limit-boulder on consecutive calendar days (48h rule) — scans all adjacent pairs across your last 10 finger-intensity sessions, not just the single most recent pair, so a violation buried a few sessions back (e.g. after an edited/backfilled entry) still gets caught. This is now a backstop, not the primary defense — every phase's own slot order (see "Finger recovery spacing" above) is built to keep you clear of this rule by construction, including a real rest day every session-week, rather than relying on this warning to catch it after the fact.
 - Flag if finger-intensity sessions (hangboard, or a climb session logged at RPE 9+) exceed 3 in the last 7 calendar days.
 - Flag a deload session-week automatically every 4th session-week of Strength Base or Power & Power-Endurance, **and** the moment a phase is confirmed held past its nominal length on an unmet benchmark — running a full phase without hitting the target is itself a signal to back off before continuing to chase it.
 - Surface a warning on 2 consecutive pain-flagged sessions (deload required), or a softer warning when 2 of your last 3 finger-flagged sessions show pain/tweaky even if not consecutive or identical — an alternating pattern (pain → good → tweaky) is still a recurring-issue signal that a strict-consecutive check would miss.
@@ -180,6 +197,8 @@ This is real autoregulation (Source: standard resistance-training autoregulation
 - Hubal, M.J. et al. (2005). *Variability in muscle size and strength gain after unilateral resistance training.* Medicine & Science in Sports & Exercise. Cited for the individual-response-variability limitation noted above — same training stimulus produces meaningfully different adaptation across individuals.
 - Behm, D.G. & Chaouachi, A. (2011). *A review of the acute effects of static and dynamic stretching on performance.* European Journal of Applied Physiology. Source for the daily mobility routine's dynamic-before/static-after sequencing.
 - Dr. Andreo Spina — Functional Range Conditioning (FRC), source for the CARs (controlled articular rotations) protocol used in the daily mobility routine's shoulder drill; widely adopted across strength & mobility coaching, not a peer-reviewed source.
+- Mundry, S., Steinmetz, G., Atkinson, E.J., Schilling, A.F., Schöffl, V.R., Saul, D. (2021). *Hangboard training in advanced climbers: A randomized controlled trial.* Scientific Reports 11:13530. Same research group as the Saul et al. (2019) citation above; source for the "Finger recovery spacing" fix — this trial's own hangboard protocol ran 2-3 sessions/week, not back-to-back.
+- Eric J. Hörst — "Training Cafe" episode #34, trainingforclimbing.com (in addition to *Training for Climbing*, already cited above). Source for the explicit "3-4 climbing days/week and one complete rest day per week" guidance behind the added rest slots.
 
 **Caveat:** several of the above (Philippe et al., Schweizer & Hudek) are cited from memory of the general findings/thrust of published climbing-science literature — verify exact figures/years before quoting them anywhere user-facing. The protocols (López repeaters, Bechtel standards, Hörst/Anderson periodization) are well-established and widely reproduced in the climbing training community, but treat this doc as a first draft to sanity-check, not a peer-reviewed citation list.
 
