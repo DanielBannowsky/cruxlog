@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v45";
+const APP_VERSION = "v46";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -1687,36 +1687,52 @@ function renderGradePyramid(){
 /* GitHub-contribution-style grid — columns are weeks (oldest left, newest right), rows are
    days. Grade breakthroughs are rare and can be flat for weeks; this makes plain "did I show
    up" consistency visible at a glance, which the grade chart structurally can't. */
-const HEATMAP_QUADRANTS = [
-  {t:"climb",    qx:0, qy:0},
-  {t:"hang",     qx:1, qy:0},
-  {t:"lift",     qx:0, qy:1},
-  {t:"mobility", qx:1, qy:1},
-];
+/* Every combination of the day's types fully covers the cell, chosen so the common cases
+   (1-2 types) stay a clean single fill or a simple split, and only crowded days (3-4 types)
+   get subdivided further: mobility always claims a diagonal half (top-left triangle) when
+   present, since it's a distinct daily habit rather than part of the climb/hang/lift
+   rotation; everything else stacks as horizontal strips — across the full cell when
+   mobility isn't involved, or clipped into mobility's remaining triangle when it is. */
 function renderHeatmap(){
   const weeks=18;
   const days=heatmapData(weeks);
-  const cell=12, gap=3, half=cell/2;
+  const cell=12, gap=3;
   const cols=weeks, rows=7;
   const w=cols*(cell+gap)-gap, h=rows*(cell+gap)-gap;
   const rects=days.map((d,i)=>{
     const col=Math.floor(i/7), row=i%7;
     const x=col*(cell+gap), y=row*(cell+gap);
+    const x2=x+cell, y2=y+cell;
     const stroke = d.hardClimb ? "var(--pain)" : "none";
     const strokeAttr = stroke!=="none" ? `stroke="${stroke}" stroke-width="1.5"` : "";
     const title=`<title>${d.date}: ${d.types.length?d.types.join(" + "):"rest"}</title>`;
     if(!d.types.length){
       return `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="var(--panel2)" ${strokeAttr}>${title}</rect>`;
     }
-    // One fixed quadrant per type (climb/hang/lift/mobility), filled only if that type was
-    // logged that day — the only layout that can show all 4 at once in one small cell,
-    // instead of capping out at 2 (a diagonal split) or getting cramped past 3 (vertical strips).
-    const quads=HEATMAP_QUADRANTS.map(q=>{
-      const on=d.types.includes(q.t);
-      return `<rect x="${(x+q.qx*half).toFixed(1)}" y="${(y+q.qy*half).toFixed(1)}" width="${half}" height="${half}"
-        fill="${on?TYPE_COLORS[q.t]:"var(--panel2)"}"/>`;
-    }).join("");
-    return `<g ${strokeAttr}><rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="none" ${strokeAttr}/>${quads}${title}</g>`;
+    const hasMobility=d.types.includes("mobility");
+    const others=d.types.filter(t=>t!=="mobility");
+    const hStrips=(list,clip)=>{
+      const stripH=cell/list.length;
+      const rects=list.map((t,ti)=>`<rect x="${x}" y="${(y+ti*stripH).toFixed(1)}" width="${cell}" height="${stripH.toFixed(1)}" fill="${TYPE_COLORS[t]}"/>`).join("");
+      return clip ? `<g clip-path="url(#${clip})">${rects}</g>` : rects;
+    };
+    let fill;
+    if(!hasMobility){
+      fill = others.length===1
+        ? `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="${TYPE_COLORS[others[0]]}"/>`
+        : hStrips(others);
+    } else if(others.length===0){
+      fill = `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="${TYPE_COLORS.mobility}"/>`;
+    } else if(others.length===1){
+      fill = `<polygon points="${x},${y} ${x2},${y} ${x},${y2}" fill="${TYPE_COLORS.mobility}"/>
+        <polygon points="${x2},${y} ${x2},${y2} ${x},${y2}" fill="${TYPE_COLORS[others[0]]}"/>`;
+    } else {
+      const clipId=`hmclip${i}`;
+      fill = `<polygon points="${x},${y} ${x2},${y} ${x},${y2}" fill="${TYPE_COLORS.mobility}"/>
+        <clipPath id="${clipId}"><polygon points="${x2},${y} ${x2},${y2} ${x},${y2}"/></clipPath>
+        ${hStrips(others,clipId)}`;
+    }
+    return `<g ${strokeAttr}><rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="none" ${strokeAttr}/>${fill}${title}</g>`;
   }).join("");
   return `<div class="field">
     <div class="stack">
