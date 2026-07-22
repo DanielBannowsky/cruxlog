@@ -214,7 +214,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v43";
+const APP_VERSION = "v44";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -300,70 +300,73 @@ const LIFT_FULL = {
   perform:  "6 lifts. Reduced volume. Maintenance load only.",
 };
 /* {{grade}} is resolved at render time from your logged send history (see gradeRangeFor). */
-/* Fixed 3-day/week cadence (Mon/Wed/Sat) — every phase's 3 climbing sessions map 1:1 onto
-   those 3 gym visits, with hangboard and lifting folded onto the same visit as a climb
-   session rather than requiring separate days, since the athlete only trains 3x/week. Tue,
-   Thu, Fri, Sun are automatic full rest — no explicit "rest slot" needed (unlike an earlier
-   draft of this plan) because the fixed cadence itself guarantees 48-72h between the
-   finger-intensive slots below, matching TRAINING_PLAN.md's "Finger recovery spacing"
-   sources (Schweizer & Hudek 2011; Mundry, Steinmetz, Atkinson, Schilling, Schöffl, Saul
-   2021). Within a shared visit, max hangs are sequenced BEFORE climbing (fresh fingers —
-   fatigued tendons are the injury-risk mechanism) and repeater/maintenance hangs AFTER
-   (submax, fine when already warmed up) — both directly research-backed, not a guess.
-   Lift is paired with the hardest climb of the week (limit/project) rather than with hang,
-   since lift doesn't add finger-tendon load the way a second hang session would. */
+/* Climbing is fixed at 3x/week (the athlete's own real schedule) with hang/lift on whatever
+   other days fit — the app stays session-driven/day-agnostic (no weekday text in labels).
+   Three placement rules, driven by real constraints, not calendar guesses:
+   - Lift is always its own standalone session — never framed as "same visit" as a climb.
+   - Max-hang protocol sessions (protocol:"max", whether a true max-effort day or a lighter
+     "maintenance" one) are home-only for this athlete, so they're also standalone, never
+     paired with a climb slot.
+   - Repeater-protocol hang sessions can be done at home OR the gym, so they're flexible —
+     kept adjacent to a climb slot as an optional same-session pairing.
+   Every phase's slot order still keeps finger-intensive slots (any hang, or a climb
+   targeting RPE≥9) non-adjacent wherever the composition allows — see TRAINING_PLAN.md
+   "Finger recovery spacing" for the full audit and sources (Schweizer & Hudek 2011;
+   Mundry, Steinmetz, Atkinson, Schilling, Schöffl, Saul 2021). Performance phase can't
+   avoid one adjacency (2 project climbs + 1 hang sharing only 5 slots) — documented
+   honestly there rather than overclaiming a spacing the composition can't support. */
 const WEEKLY_TEMPLATES = {
   recon:[
-    {type:"climb",label:"Mon: Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
+    {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Volume: high. Angle: easy-moderate. Constraint: footwork precision, not difficulty. No limit attempts."},
-    {type:"hang", label:"Mon: Hangboard — repeaters, after climbing", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
-      full:"Edge: 20mm. Load: {{load}}. Protocol: 7s hang / 3s rest × 6 reps, 3min rest between sets, 2 sets/grip type (open + half-crimp). Do this after Monday's climb — repeaters are submax, fine once warm."},
-    {type:"climb",label:"Wed: Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
-      full:"Same as Monday's volume day. Grade: {{grade}}. Mileage + footwork, not difficulty."},
-    {type:"lift", label:"Wed: Lift — light",  detail:"6 lifts · light load", targetRpe:5,
-      full:LIFT_FULL.recon},
-    {type:"climb",label:"Sat: Climb — ARC / easy (active recovery)", detail:"{{grade}} · 20–30min continuous", targetRpe:4, gradeRole:"arc",
+    {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
+      full:"Edge: 20mm. Load: {{load}}. Protocol: 7s hang / 3s rest × 6 reps, 3min rest between sets, 2 sets/grip type (open + half-crimp). Repeaters work at home or the gym — pair this with the climb above same-session, or do it on its own."},
+    {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
+      full:"Same as the other volume day. Grade: {{grade}}. Mileage + footwork, not difficulty."},
+    {type:"climb",label:"Climb — ARC / easy (active recovery)", detail:"{{grade}} · 20–30min continuous", targetRpe:4, gradeRole:"arc",
       full:"Grade: {{grade}}. Duration: 20-30min continuous movement, minimal rest. No pump."},
-    {type:"hang", label:"Sat: Hangboard — repeaters, after climbing", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
-      full:"2nd repeater session this week. Same protocol as Monday's. Edge: 20mm. Load: {{load}}. Do this after Saturday's climb."},
+    {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
+      full:"2nd repeater session this week. Same protocol as the other one. Edge: 20mm. Load: {{load}}. Home or gym — pair with the climb above, or do it separately."},
+    {type:"lift", label:"Lift — light",  detail:"6 lifts · light load", targetRpe:5,
+      full:LIFT_FULL.recon+" Own session — not paired with a climbing day."},
   ],
   strength:[
-    {type:"hang", label:"Mon: Hangboard — max hangs, before climbing", detail:"20mm · {{load}} · 10s/3min×5–6",protocol:"max", targetRpe:9,
-      full:"Edge: 20mm. Load: {{load}} (near-max). Protocol: 10s hang / 3min rest × 5-6 sets. Full rest required, no shortcuts. Do this FIRST, before climbing — max hangs need fresh fingers; fatigued tendons are the injury-risk mechanism."},
-    {type:"climb",label:"Mon: Climb — volume (mileage/footwork)", detail:"{{grade}} · footwork drills", targetRpe:6, gradeRole:"volume",
-      full:"Grade: {{grade}}. Volume: moderate. Include 2-3 footwork-drill problems. Comes after the max hang session today."},
-    {type:"climb",label:"Wed: Climb — volume / ARC (mileage)", targetRpe:5, gradeRole:"volume",
+    {type:"hang", label:"Hangboard — max hangs (raw strength)", detail:"20mm · {{load}} · 10s/3min×5–6",protocol:"max", targetRpe:9,
+      full:"Edge: 20mm. Load: {{load}} (near-max). Protocol: 10s hang / 3min rest × 5-6 sets. Full rest required, no shortcuts. Home only, own session — never combine with a climbing day: max hangs need fully fresh fingers, and fatigued tendons are the specific injury-risk mechanism."},
+    {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · footwork drills", targetRpe:6, gradeRole:"volume",
+      full:"Grade: {{grade}}. Volume: moderate. Include 2-3 footwork-drill problems. Warm up before harder attempts."},
+    {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"{{load}} · repeaters + core",protocol:"repeater", targetRpe:6,
+      full:"Load: {{load}}. Repeaters + core. Intensity: moderate — maintenance, not primary stimulus. Home or gym — can pair with the climb above same-session, or do it on its own."},
+    {type:"climb",label:"Climb — volume / ARC (mileage)", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Active recovery / mileage."},
-    {type:"hang", label:"Wed: Hangboard — repeaters, after climbing", detail:"{{load}} · repeaters + core",protocol:"repeater", targetRpe:6,
-      full:"Load: {{load}}. Repeaters + core. Intensity: moderate — maintenance, not primary stimulus. Do this after Wednesday's climb."},
-    {type:"climb",label:"Sat: Climb — project/limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
-      full:"Grade: {{grade}}. Volume: low. Rest: full (3-5min) between attempts. Movement quality not required. No hangboard today — this is the week's freshest-finger day, kept that way on purpose."},
-    {type:"lift", label:"Sat: Lift — build",  detail:"6 lifts · progressive overload", targetRpe:7,
-      full:LIFT_FULL.strength+" Comes after today's limit climb — lifting doesn't add finger-tendon load, so pairing it here (not with a hang session) keeps finger-intensive days to Mon/Wed only."},
+    {type:"climb",label:"Climb — project/limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
+      full:"Grade: {{grade}}. Volume: low. Rest: full (3-5min) between attempts. Movement quality not required. No hangboard or lift same-session — keep this day's fingers as fresh as the max-hang day's."},
+    {type:"lift", label:"Lift — build",  detail:"6 lifts · progressive overload", targetRpe:7,
+      full:LIFT_FULL.strength+" Own session — not paired with a climbing or hangboard day."},
   ],
   power:[
-    {type:"climb",label:"Mon: Climb — limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
-      full:"Grade: {{grade}}. Volume: low. Rest: full between attempts. No hangboard today."},
-    {type:"lift", label:"Mon: Lift — maintain",  detail:"6 lifts · hold current load", targetRpe:6,
-      full:LIFT_FULL.power+" Comes after today's limit climb."},
-    {type:"climb",label:"Wed: Climb — power-endurance (linking hard moves)", detail:"4x4s · {{grade}}", targetRpe:8, gradeRole:"powerEnd",
+    {type:"climb",label:"Climb — limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
+      full:"Grade: {{grade}}. Volume: low. Rest: full between attempts. No hangboard same-session — keep this day's fingers fresh."},
+    {type:"climb",label:"Climb — power-endurance (linking hard moves)", detail:"4x4s · {{grade}}", targetRpe:8, gradeRole:"powerEnd",
       full:"Grade: {{grade}}. Protocol: 4x4s or linked circuits. Rest: minimal between attempts."},
-    {type:"hang", label:"Wed: Hangboard — maintenance, after climbing", detail:"1×/week · {{load}}",protocol:"max", targetRpe:7,
-      full:"Load: {{load}}. Sets: 3-4. Maintenance only, no new PRs. Do this after Wednesday's climb — this isn't a fresh-finger max effort, just holding current strength."},
-    {type:"climb",label:"Sat: Climb — volume / campus (mileage)", targetRpe:5, gradeRole:"volume",
-      full:"Grade: {{grade}} volume, or campus (basic ladders, matching only). Lightest day of the week — no hangboard or lift."},
+    {type:"hang", label:"Hangboard — maintenance (hold current strength)", detail:"1×/week · {{load}}",protocol:"max", targetRpe:7,
+      full:"Load: {{load}}. Sets: 3-4. Maintenance only, no new PRs. Home only, own session — this is still a max-hang protocol even at maintenance load, so keep it off climbing days."},
+    {type:"lift", label:"Lift — maintain",  detail:"6 lifts · hold current load", targetRpe:6,
+      full:LIFT_FULL.power+" Own session — not paired with a climbing or hangboard day."},
+    {type:"climb",label:"Climb — volume / campus (mileage)", targetRpe:5, gradeRole:"volume",
+      full:"Grade: {{grade}} volume, or campus (basic ladders, matching only)."},
   ],
   perform:[
-    {type:"climb",label:"Mon: Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
-      full:"Grade: {{grade}}. Rest: full between burns. No hangboard today."},
-    {type:"lift", label:"Mon: Lift — maintain",  detail:"6 lifts · reduced volume", targetRpe:5,
-      full:LIFT_FULL.perform+" Comes after today's project session."},
-    {type:"climb",label:"Wed: Climb — volume / technique (mileage)", targetRpe:5, gradeRole:"volume",
+    {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
+      full:"Grade: {{grade}}. Rest: full between burns. No hangboard same-session — keep this day's fingers fresh."},
+    {type:"lift", label:"Lift — maintain",  detail:"6 lifts · reduced volume", targetRpe:5,
+      full:LIFT_FULL.perform+" Own session — not paired with a climbing or hangboard day."},
+    {type:"hang", label:"Hangboard — maintenance (hold current strength)", detail:"{{load}} · short session",protocol:"max", targetRpe:6,
+      full:"Load: {{load}}. Duration: short. Maintenance only, no grinding. Home only, own session — still a max-hang protocol at maintenance load, so keep it off climbing days."},
+    {type:"climb",label:"Climb — volume / technique (mileage)", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Volume or technique review (film footwork/hips on project crux)."},
-    {type:"hang", label:"Wed: Hangboard — maintenance, after climbing", detail:"{{load}} · short session",protocol:"max", targetRpe:6,
-      full:"Load: {{load}}. Duration: short. Maintenance only, no grinding. Do this after Wednesday's climb."},
-    {type:"climb",label:"Sat: Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
-      full:"2nd project session this week. Grade: {{grade}}. Rest: full between burns. No hangboard today — freshest-finger day of the week."},
+    {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
+      full:"2nd project session this week. Grade: {{grade}}. Rest: full between burns. Only 2 non-finger slots share this 5-slot week with 3 finger-intensive ones, so this session lands right after the other project day on the cycle wrap — the one spacing tradeoff this phase's composition can't avoid without added volume."},
   ],
 };
 function slotsOf(phaseKey){ return WEEKLY_TEMPLATES[phaseKey]||WEEKLY_TEMPLATES.strength; }
