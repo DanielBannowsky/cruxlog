@@ -1762,13 +1762,11 @@ function renderHeatmap(){
       ${title}
     </g>`;
   }).join("");
-  // Calories get their own row of real squares (not a stretched bar) directly below the main
-  // grid, separated by a thin divider — but only the last 7 days, not the full 18-week
-  // history, since this is a quick "did I eat enough this week" glance, not a long-term
-  // pattern chart the way training consistency is.
-  const last7=days.slice(-7);
-  const calW=7*(cell+gap)-gap;
-  const calSquares=last7.map((d,i)=>{
+  // Calorie row: same cell size, gap, column count, and total width as one row of the main
+  // grid above — literally the same geometry, just its own row (last `cols` days) below a
+  // thin divider, rather than folding a 5th dimension into the training cells themselves.
+  const lastCols=days.slice(-cols);
+  const calSquares=lastCols.map((d,i)=>{
     const status=(store.dailyChecks||{})[d.date];
     const color = status==="yes"?"var(--good)":status==="maybe"?"var(--tweaky)":status==="no"?"var(--pain)":"var(--panel2)";
     return `<rect x="${(i*(cell+gap)).toFixed(1)}" y="0" width="${cell}" height="${cell}" rx="3" fill="${color}"><title>${d.date}: ${status||"not logged"}</title></rect>`;
@@ -1787,8 +1785,8 @@ function renderHeatmap(){
       </div>
       <div style="height:1px;background:var(--line);margin:2px 0"></div>
       <div>
-        <div class="hint" style="margin-bottom:4px">Calories, last 7 days</div>
-        <svg viewBox="0 0 ${calW} ${cell}" style="width:${calW}px;height:${cell}px;display:block">${calSquares}</svg>
+        <div class="hint" style="margin-bottom:4px">Calories, last ${cols} days</div>
+        <svg viewBox="0 0 ${w} ${cell}" preserveAspectRatio="none" style="width:100%;height:${cell}px;display:block">${calSquares}</svg>
       </div>
       <div class="hint" style="display:flex;flex-wrap:wrap;gap:10px">
         <span><span style="color:var(--good)">■</span> met</span>
