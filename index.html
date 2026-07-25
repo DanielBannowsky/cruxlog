@@ -857,6 +857,7 @@ const I = {
   hang:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11.5V9a2 2 0 0 0-2-2 2 2 0 0 0-2 2v1.4"/><path d="M14 10V8a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 9.9V9a2 2 0 0 0-2-2 2 2 0 0 0-2 2v5"/><path d="M6 14a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-4a8 8 0 0 1-7-4"/></svg>',
   lift:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>',
   mobility:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2"/><path d="M12 7.5v5"/><path d="m6.5 10.5 5.5 2 5.5-2"/><path d="M12 12.5 8 21"/><path d="M12 12.5l4 8.5"/></svg>',
+  utensils:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V2"/><path d="M5 11v11"/><path d="M19 2c-1.4 1.8-2 3.8-2 6 0 2 .8 3 2 3s2-1 2-3c0-2.2-.6-4.2-2-6z"/><path d="M19 12v10"/></svg>',
   play:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>',
   pause:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
   hist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>',
@@ -1106,6 +1107,30 @@ function renderPlan(){
     </div>
   </div>`;
 
+  // Very lightweight — no numeric calorie entry, just a daily yes/no/maybe against a rough
+  // bodyweight-based TDEE reference (not precise, just a gut-check anchor).
+  const bw=store.settings.bodyweight;
+  const tdee=bw?Math.round(bw*16):null;
+  const calToday=(store.dailyChecks||{})[todayStr()];
+  const CAL_OPTS=[["yes","Yes","var(--good)"],["maybe","Maybe","var(--tweaky)"],["no","No","var(--pain)"]];
+  const caloriesRow=`<div class="field">
+    <div class="liftrow" style="flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="hicon" style="color:var(--accent)">${I.utensils}</span>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:14px;color:var(--ink)">Met calories today?</div>
+          <div class="hint" style="margin:2px 0 0">${tdee?`Rough guide: ~${tdee} kcal/day (bodyweight × 16) — not precise, just a reference point.`:"Set bodyweight in Progress → Benchmarks for a rough daily guide."}</div>
+        </div>
+      </div>
+      <div class="row3">${CAL_OPTS.map(([k,lab,dot])=>{
+        const on=calToday===k;
+        return `<button class="chip" data-cal="${k}"
+          style="border-color:${on?dot:"var(--line)"};background:${on?"rgba(255,255,255,.05)":"var(--panel)"};color:${on?"var(--ink)":"var(--sub)"}">
+          <span class="dot" style="background:${dot}"></span>${lab}</button>`;
+      }).join("")}</div>
+    </div>
+  </div>`;
+
   const warnBlock = warnings.length ? `<div class="field">${warnings.map(w=>{
     const bg = w.level==="bad" ? "#3A2622" : w.level==="warn" ? "#3A3122" : w.level==="good" ? "#1E3327" : "var(--panel)";
     const fg = w.level==="bad" ? "#F0C6BE" : w.level==="warn" ? "#F0DFA6" : w.level==="good" ? "var(--good)" : "var(--sub)";
@@ -1189,6 +1214,7 @@ function renderPlan(){
     ${isDeload?`<div class="field"><div style="background:#22303A;color:var(--accent);border-radius:12px;padding:12px 14px;font-size:13px;">Deload week: halve hangboard/lift volume.</div></div>`:""}
     ${upNextCard}
     ${mobilityRow}
+    ${caloriesRow}
     ${renderHeatmap()}
     ${warnBlock}
     ${phaseCard}`;
@@ -1736,6 +1762,16 @@ function renderHeatmap(){
       ${title}
     </g>`;
   }).join("");
+  // Calories get their own thin strip below the main grid instead of folding into each cell —
+  // same date range, so it reads as "aligned with the chart above," without adding a 5th
+  // dimension to already-busy squares. One bar per day, no per-day gap (thin enough that gaps
+  // would just look like noise), green/amber/red/empty for yes/maybe/no/not logged.
+  const barH=6, barW=w/days.length;
+  const calBars=days.map((d,i)=>{
+    const status=(store.dailyChecks||{})[d.date];
+    const color = status==="yes"?"var(--good)":status==="maybe"?"var(--tweaky)":status==="no"?"var(--pain)":"var(--panel2)";
+    return `<rect x="${(i*barW).toFixed(1)}" y="0" width="${barW.toFixed(1)}" height="${barH}" fill="${color}"/>`;
+  }).join("");
   return `<div class="field">
     <div class="stack">
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${rects}</svg>
@@ -1747,6 +1783,10 @@ function renderHeatmap(){
         <span><span style="color:var(--tweaky)">■</span> hang</span>
         <span><span style="color:var(--good)">■</span> lift</span>
         <span><span style="color:var(--mobility)">■</span> mobility</span>
+      </div>
+      <div style="margin-top:6px">
+        <div class="hint" style="margin-bottom:4px">Calories met</div>
+        <svg viewBox="0 0 ${w} ${barH}" style="width:100%;height:${barH}px;display:block">${calBars}</svg>
       </div>
     </div></div>`;
 }
@@ -2185,6 +2225,15 @@ function wire(){
     ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
     ui.tab="log"; render();
   };
+  // Calorie check-in — direct tap on the Plan tab, no session record, just a date-keyed
+  // yes/no/maybe in store.dailyChecks. Tapping the active option clears it.
+  $main.querySelectorAll("[data-cal]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.cal, d=todayStr();
+    store.dailyChecks=store.dailyChecks||{};
+    store.dailyChecks[d] = store.dailyChecks[d]===k ? undefined : k;
+    if(store.dailyChecks[d]===undefined) delete store.dailyChecks[d];
+    save(); render();
+  });
   const unt=$main.querySelector("#upNextTap"); if(unt) unt.onclick=()=>{ ui.planSlotsOpen=true; render(); };
   const pkc=$main.querySelector("#pickerClose"); if(pkc) pkc.onclick=()=>{ ui.planSlotsOpen=false; render(); };
   const pit=$main.querySelector("#phaseInfoTap"); if(pit) pit.onclick=()=>{ ui.phaseInfoOpen=!ui.phaseInfoOpen; render(); };
