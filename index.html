@@ -1762,11 +1762,13 @@ function renderHeatmap(){
       ${title}
     </g>`;
   }).join("");
-  // Calories get their own thin strip below the main grid instead of folding into each cell —
-  // same date range, so it reads as "aligned with the chart above," without adding a 5th
-  // dimension to already-busy squares. One bar per day, no per-day gap (thin enough that gaps
-  // would just look like noise), green/amber/red/empty for yes/maybe/no/not logged.
-  const barH=6, barW=w/days.length;
+  // Calories get their own strip below the main grid instead of folding into each cell — same
+  // date range and same height as one row of squares, so it reads as directly attached to the
+  // chart above. One bar per day, no per-day gap, green/amber/red/empty for yes/maybe/no/not
+  // logged. preserveAspectRatio="none" is required here: a fixed-height/100%-width SVG with
+  // a very wide viewBox otherwise letterboxes (centers with empty space) under the default
+  // "meet" scaling instead of stretching to the container's actual edges.
+  const barH=cell, barW=w/days.length;
   const calBars=days.map((d,i)=>{
     const status=(store.dailyChecks||{})[d.date];
     const color = status==="yes"?"var(--good)":status==="maybe"?"var(--tweaky)":status==="no"?"var(--pain)":"var(--panel2)";
@@ -1776,7 +1778,7 @@ function renderHeatmap(){
     <div class="stack">
       <div style="display:flex;flex-direction:column;gap:2px">
         <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${rects}</svg>
-        <svg viewBox="0 0 ${w} ${barH}" style="width:100%;height:${barH}px;display:block">${calBars}</svg>
+        <svg viewBox="0 0 ${w} ${barH}" preserveAspectRatio="none" style="width:100%;height:${barH}px;display:block">${calBars}</svg>
       </div>
       <div class="hint" style="display:flex;justify-content:space-between">
         <span>${prettyDate(days[0].date)}</span><span>${prettyDate(days[days.length-1].date)}</span>
