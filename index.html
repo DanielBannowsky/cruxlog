@@ -1772,9 +1772,11 @@ function renderHeatmap(){
     return `<rect x="${(i*(cell+gap)).toFixed(1)}" y="0" width="${cell}" height="${cell}" rx="3" fill="${color}"><title>${d.date}: ${status||"not logged"}</title></rect>`;
   }).join("");
   return `<div class="field">
-    <div class="stack">
+    <div class="stack" style="gap:6px">
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${rects}</svg>
-      <div class="hint" style="display:flex;justify-content:space-between">
+      <div style="height:1px;background:var(--line);margin:2px 0"></div>
+      <svg viewBox="0 0 ${w} ${cell}" preserveAspectRatio="none" style="width:100%;height:${cell}px;display:block">${calSquares}</svg>
+      <div class="hint" style="display:flex;justify-content:space-between;margin-top:4px">
         <span>${prettyDate(days[0].date)}</span><span>${prettyDate(days[days.length-1].date)}</span>
       </div>
       <div class="hint" style="display:flex;flex-wrap:wrap;gap:10px">
@@ -1783,13 +1785,8 @@ function renderHeatmap(){
         <span><span style="color:var(--good)">■</span> lift</span>
         <span><span style="color:var(--mobility)">■</span> mobility</span>
       </div>
-      <div style="height:1px;background:var(--line);margin:2px 0"></div>
-      <div>
-        <div class="hint" style="margin-bottom:4px">Calories, last ${cols} days</div>
-        <svg viewBox="0 0 ${w} ${cell}" preserveAspectRatio="none" style="width:100%;height:${cell}px;display:block">${calSquares}</svg>
-      </div>
       <div class="hint" style="display:flex;flex-wrap:wrap;gap:10px">
-        <span><span style="color:var(--good)">■</span> met</span>
+        <span><span style="color:var(--good)">■</span> calories met</span>
         <span><span style="color:var(--tweaky)">■</span> maybe</span>
         <span><span style="color:var(--pain)">■</span> not met</span>
       </div>
