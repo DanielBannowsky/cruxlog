@@ -1775,7 +1775,7 @@ function renderHeatmap(){
     <div class="stack" style="gap:6px">
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${rects}</svg>
       <div style="height:1px;background:var(--line);margin:2px 0"></div>
-      <svg viewBox="0 0 ${w} ${cell}" preserveAspectRatio="none" style="width:100%;height:${cell}px;display:block">${calSquares}</svg>
+      <svg viewBox="0 0 ${w} ${cell}" style="width:100%;height:auto;display:block">${calSquares}</svg>
       <div class="hint" style="display:flex;justify-content:space-between;margin-top:4px">
         <span>${prettyDate(days[0].date)}</span><span>${prettyDate(days[days.length-1].date)}</span>
       </div>
