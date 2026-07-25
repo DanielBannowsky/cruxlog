@@ -270,7 +270,7 @@ const DEFAULTS = {
   version: SCHEMA_VERSION,
   sessions:[],
   liftTargets:{chin:0,ohp:null,squat:null,row:null,bench:null,dl:null},
-  lastLiftDay:null, dailyChecks:{},
+  lastLiftDay:null, dailyChecks:{}, seedCalDates:[],
   settings:{targetGrade:8, bodyweight:null, comfortableGrade:null, bodyweightSeeded:false},
   benchmarks:[], // {id,date,metric:'hang'|'pull',value}
   progress:{phaseIdx:0, weekInPhase:1, slot:0}, // advances only when a session is logged — never tied to the calendar
@@ -1577,7 +1577,7 @@ function renderProgress(){
     <div class="hint" style="margin:16px 0 8px">Testing</div>
     <button class="btn2" id="loadTestData">Load sample data</button>
     ${store.sessions.some(x=>x.seed)?`<button class="btn2 danger" id="clearTestData">Remove sample data</button>`:""}
-    <div class="note">Adds ~4 weeks of synthetic sessions (climb/hang/lift/mobility) plus hang/pull benchmarks — and a placeholder bodyweight if you haven't set one — to check every Progress chart, the grade pyramid, and the heatmap. Doesn't touch your plan progress. Tagged so it's removable in one tap; the placeholder bodyweight is cleared too if you didn't already have one set. Included in exports/backups until you remove it.</div>`;
+    <div class="note">Adds ~4 weeks of synthetic sessions (climb/hang/lift/mobility) plus hang/pull benchmarks, a placeholder bodyweight if you haven't set one, and sample calorie check-ins — to check every Progress chart, the grade pyramid, and the heatmap. Doesn't touch your plan progress. Tagged so it's removable in one tap; placeholders/samples are cleared too, without touching any real entries on the same dates. Included in exports/backups until you remove it.</div>`;
 
   return errBanner()+`
     <div class="cur"><div class="lab">Current</div>
@@ -1774,7 +1774,10 @@ function renderHeatmap(){
   }).join("");
   return `<div class="field">
     <div class="stack">
-      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${rects}</svg>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${rects}</svg>
+        <svg viewBox="0 0 ${w} ${barH}" style="width:100%;height:${barH}px;display:block">${calBars}</svg>
+      </div>
       <div class="hint" style="display:flex;justify-content:space-between">
         <span>${prettyDate(days[0].date)}</span><span>${prettyDate(days[days.length-1].date)}</span>
       </div>
@@ -1784,9 +1787,10 @@ function renderHeatmap(){
         <span><span style="color:var(--good)">■</span> lift</span>
         <span><span style="color:var(--mobility)">■</span> mobility</span>
       </div>
-      <div style="margin-top:6px">
-        <div class="hint" style="margin-bottom:4px">Calories met</div>
-        <svg viewBox="0 0 ${w} ${barH}" style="width:100%;height:${barH}px;display:block">${calBars}</svg>
+      <div class="hint" style="display:flex;flex-wrap:wrap;gap:10px">
+        <span><span style="color:var(--good)">▬</span> calories met</span>
+        <span><span style="color:var(--tweaky)">▬</span> maybe</span>
+        <span><span style="color:var(--pain)">▬</span> not met</span>
       </div>
     </div></div>`;
 }
@@ -2279,12 +2283,19 @@ function wire(){
     store.sessions=[...store.sessions, ...generateTestSessions()];
     store.benchmarks=[...(store.benchmarks||[]), ...generateTestBenchmarks()];
     if(store.settings.bodyweight==null){ store.settings.bodyweight=165; store.settings.bodyweightSeeded=true; }
+    store.dailyChecks=store.dailyChecks||{};
+    store.seedCalDates=store.seedCalDates||[];
+    Object.entries(generateTestDailyChecks()).forEach(([d,status])=>{
+      if(store.dailyChecks[d]==null){ store.dailyChecks[d]=status; store.seedCalDates.push(d); }
+    });
     save(); render();
   };
   const ctd=$main.querySelector("#clearTestData"); if(ctd) ctd.onclick=()=>{
     store.sessions=store.sessions.filter(x=>!x.seed);
     store.benchmarks=(store.benchmarks||[]).filter(x=>!x.seed);
     if(store.settings.bodyweightSeeded){ store.settings.bodyweight=null; store.settings.bodyweightSeeded=false; }
+    (store.seedCalDates||[]).forEach(d=>{ delete (store.dailyChecks||{})[d]; });
+    store.seedCalDates=[];
     save(); render();
   };
   // progress buttons
@@ -2420,6 +2431,17 @@ function generateTestBenchmarks(){
     out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+3), metric:"hang", value:20+w*5});
     out.push({id:uid(), seed:true, date:dateFromDaysAgo(base+4), metric:"pull", value:35+w*5});
   }
+  return out;
+}
+/* dailyChecks is a plain {date: status} map with no per-entry seed flag to piggyback on
+   (unlike sessions/benchmarks), so the caller tracks which dates it added in
+   store.seedCalDates and only clears those specific keys on removal — never a real entry
+   the user set themselves, even on the same date. */
+function generateTestDailyChecks(){
+  const pattern=["yes","yes","maybe","yes","no","yes","maybe","no","yes","yes",
+    "maybe","yes","no","yes","yes","maybe","yes","no","yes","maybe"];
+  const out={};
+  pattern.forEach((status,i)=>{ out[dateFromDaysAgo(i+1)]=status; });
   return out;
 }
 
