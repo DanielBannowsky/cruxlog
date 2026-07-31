@@ -231,17 +231,24 @@ const GRADE_COLORS = ["#5E8A96","#5E9689","#5F9C7E","#79A066","#A3A055","#C0983F
    goal, inverted row + wrist curl for the cheapest injury-prevention return given how much
    hangboard loading is already in this plan. scheme:"gslp" drives the AMRAP progression
    logic; scheme:"hold" is duration-based (front lever); no scheme = simple steady-load
-   accessory work. incLb is the Greyskull-style per-session progression jump. */
+   accessory work. incLb is the Greyskull-style per-session progression jump. `rest` (sec)
+   sets each exercise's default rest-timer duration, evidence-anchored not guessed: 180s for
+   the near-max/AMRAP lifts and the front lever (ACSM guidance is 2-3min minimum for heavy
+   compound work, more approaching max effort; a 2024 Bayesian meta-analysis and a Sports
+   Medicine systematic review both found rest >60s consistently outperforms shorter rests for
+   strength outcomes; front lever holds specifically call for a ~3min floor per the same
+   progression sources cited in TRAINING_PLAN.md), 90s for inverted row and 60s for wrist
+   curl (standard accessory/isolation rest, not a max-effort target either). */
 const LIFT_DAY = [
-  {key:"frontlever", name:"Front lever progression",     short:"Front lever", sets:4, repTarget:"3-10", scheme:"hold"},
-  {key:"pullup",      name:"Weighted pull-up",            short:"Pull-up",     sets:3, repTarget:"5", bw:true, scheme:"gslp", incLb:2.5},
-  {key:"squat",       name:"Squat",                       short:"Squat",       sets:3, repTarget:"5", scheme:"gslp", incLb:5},
-  {key:"ohp",         name:"Overhead press",              short:"OHP",         sets:3, repTarget:"5", scheme:"gslp", incLb:2.5},
-  {key:"invrow",      name:"Inverted row",                short:"Inv. row",    sets:3, repTarget:"8-12"},
-  {key:"wristext",    name:"Wrist extensor curl (plate)", short:"Wrist ext",   sets:3, repTarget:"12"},
+  {key:"frontlever", name:"Front lever progression",     short:"Front lever", sets:4, repTarget:"3-10", scheme:"hold", rest:180},
+  {key:"pullup",      name:"Weighted pull-up",            short:"Pull-up",     sets:3, repTarget:"5", bw:true, scheme:"gslp", incLb:2.5, rest:180},
+  {key:"squat",       name:"Squat",                       short:"Squat",       sets:3, repTarget:"5", scheme:"gslp", incLb:5, rest:180},
+  {key:"ohp",         name:"Overhead press",              short:"OHP",         sets:3, repTarget:"5", scheme:"gslp", incLb:2.5, rest:180},
+  {key:"invrow",      name:"Inverted row",                short:"Inv. row",    sets:3, repTarget:"8-12", rest:90},
+  {key:"wristext",    name:"Wrist extensor curl (plate)", short:"Wrist ext",   sets:3, repTarget:"12", rest:60},
 ];
 function blankLiftEntries(){
-  const o={}; LIFT_DAY.forEach(L=>{ o[L.key]=Array.from({length:L.sets},()=>({weight:"",reps:""})); });
+  const o={}; LIFT_DAY.forEach(L=>{ o[L.key]=Array.from({length:L.sets},()=>({weight:"",reps:"",done:false})); });
   return o;
 }
 const FINGER = {
@@ -982,25 +989,25 @@ function toggleMobilityTimer(key,dur){
 let restTimerHandle=null;
 function clearRestTimerHandle(){ if(restTimerHandle){ clearInterval(restTimerHandle); restTimerHandle=null; } }
 function resetRestTimer(){ clearRestTimerHandle(); ui.restTimer=null; }
-/* Generic rest timer for the Lift tab — one active timer, no per-exercise key needed since
-   you're only ever resting between one set at a time. Same tick pattern as the mobility
-   timer. Presets: 90s (accessories), 120s/180s (GSLP working sets — the research behind the
-   front lever protocol also calls for ~3min between sets, so 180s covers both). */
-function toggleRestTimer(dur){
+/* Per-exercise rest timer for the Lift tab, one button per exercise (each with its own
+   default rest length — LIFT_DAY's `rest` field), same key/tick pattern as the mobility
+   routine's per-drill timer (toggleMobilityTimer) — one active timer at a time, keyed by
+   exercise instead of drill. */
+function toggleRestTimer(key,dur){
   const cur=ui.restTimer;
-  if(cur && cur.total===dur && cur.running){
+  if(cur && cur.key===key && cur.running){
     clearRestTimerHandle();
     ui.restTimer={...cur, running:false};
     render();
     return;
   }
-  ui.restTimer = (cur && cur.total===dur && cur.remaining>0) ? {...cur, running:true} : {total:dur, remaining:dur, running:true};
+  ui.restTimer = (cur && cur.key===key && cur.remaining>0) ? {...cur, running:true} : {key, remaining:dur, running:true};
   clearRestTimerHandle();
   restTimerHandle=setInterval(()=>{
-    if(!ui.restTimer || !ui.restTimer.running){ clearRestTimerHandle(); return; }
+    if(!ui.restTimer || ui.restTimer.key!==key || !ui.restTimer.running){ clearRestTimerHandle(); return; }
     const remaining=ui.restTimer.remaining-1;
-    if(remaining<=0){ ui.restTimer={...ui.restTimer, remaining:0, running:false}; clearRestTimerHandle(); }
-    else ui.restTimer={...ui.restTimer, remaining, running:true};
+    if(remaining<=0){ ui.restTimer={key, remaining:0, running:false}; clearRestTimerHandle(); }
+    else ui.restTimer={key, remaining, running:true};
     render();
   },1000);
   render();
@@ -1330,20 +1337,7 @@ function renderLog(){
         ${stepper("Sets","sets",f.sets,"")}
       </div></div>`;
   } else if(f.type==="lift"){
-    const restRow=`<div class="field">
-      <div class="liftrow" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <span class="name" style="width:auto;flex-shrink:0">Rest</span>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${[90,120,180].map(s=>{
-            const active=ui.restTimer&&ui.restTimer.total===s;
-            const running=active&&ui.restTimer.running;
-            const label=active?`${ui.restTimer.remaining}s`:`${s}s`;
-            return `<button class="timerbtn${running?" on":""}" data-resttimer="${s}">${running?I.pause:I.play}<span>${label}</span></button>`;
-          }).join("")}
-        </div>
-      </div>
-    </div>`;
-    body=restRow+LIFT_DAY.map(L=>liftBlock(L,f.entries[L.key]||[])).join("");
+    body=LIFT_DAY.map(L=>liftBlock(L,f.entries[L.key]||[])).join("");
   } else {
     const done=f.mobilityDone||[];
     body=`<div class="field"><div class="flabel">10-min daily mobility</div>
@@ -1474,9 +1468,15 @@ function liftBlock(L,rows){
     const last=hist?.lift.entries[L.key]?.slice(-1)[0];
     if(last) lastAmrap=`Last AMRAP: ${loadText(Number(last.weight)||0)} × ${last.reps||"?"}`;
   }
-  return `<div class="field"><div class="flabel" style="display:flex;justify-content:space-between;align-items:center">
+  const rt=ui.restTimer, restActive=rt&&rt.key===L.key, restRunning=restActive&&rt.running;
+  const restLabel=restActive?`${rt.remaining}s`:`${L.rest}s`;
+  const restBtn=`<button class="timerbtn${restRunning?" on":""}" data-resttimer="${L.key}" data-dur="${L.rest}">${restRunning?I.pause:I.play}<span>${restLabel}</span></button>`;
+  return `<div class="field"><div class="flabel" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
       <span>${esc(L.name)}</span>
-      <span style="color:var(--faint);text-transform:none;font-weight:600;letter-spacing:0;font-size:11px">${schemeNote}</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="color:var(--faint);text-transform:none;font-weight:600;letter-spacing:0;font-size:11px">${schemeNote}</span>
+        ${restBtn}
+      </span>
     </div>
     ${sugText?`<div class="hint" style="margin-bottom:2px">Target load: <strong style="color:var(--accent)">${sugText}</strong></div>`:""}
     ${lastAmrap?`<div class="hint" style="margin-bottom:8px">${esc(lastAmrap)}</div>`:""}
@@ -1487,11 +1487,14 @@ function liftBlock(L,rows){
 function liftSetRow(L,i,r){
   const isAmrap=L.scheme==="gslp" && i===L.sets-1;
   const isHold=L.scheme==="hold";
-  const filled = isHold ? (r.reps??"")!=="" : (r.weight??"")!=="" && (r.reps??"")!=="";
-  return `<div class="liftrow"${isAmrap?' style="border-color:var(--accent)"':""}>
-    <div class="name" style="color:${isAmrap?"var(--accent)":"inherit"}">
-      ${filled?`<span style="color:var(--good)">✓</span> `:""}${isAmrap?"AMRAP":`Set ${i+1}`}
-    </div>
+  const done=!!r.done;
+  // Whole row is the tap target (same pattern as the mobility checklist — press the card,
+  // it highlights purple) except the input fields themselves, which need normal click/focus
+  // behavior — the wire handler ignores clicks that land on an <input>.
+  return `<div class="liftrow" data-liftdone="${L.key}" data-idx="${i}" style="cursor:pointer;
+      border-color:${done?"var(--mobility)":isAmrap?"var(--accent)":"var(--line)"};
+      background:${done?"rgba(139,127,209,.13)":"var(--panel)"}">
+    <div class="name" style="color:${isAmrap?"var(--accent)":"inherit"}">${isAmrap?"AMRAP":`Set ${i+1}`}</div>
     ${isHold?"":`<input class="numin" style="width:64px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="weight"
       value="${r.weight??""}" placeholder="${L.bw?"+lb":"lb"}">
     <span class="x">×</span>`}
@@ -2232,7 +2235,7 @@ function loadSessionIntoForm(sess){
     const saved=(sess.lift||{}).entries||{};
     LIFT_DAY.forEach(L=>{
       const rows=saved[L.key]||[];
-      f.entries[L.key]=Array.from({length:L.sets},(_,i)=>rows[i]?{weight:rows[i].weight,reps:rows[i].reps}:{weight:"",reps:""});
+      f.entries[L.key]=Array.from({length:L.sets},(_,i)=>rows[i]?{weight:rows[i].weight,reps:rows[i].reps,done:!!rows[i].done}:{weight:"",reps:"",done:false});
     });
   }
   if(sess.type==="mobility") f.mobilityDone=[...((sess.mobility||{}).done||[])];
@@ -2257,7 +2260,7 @@ function commitSave(){
     LIFT_DAY.forEach(L=>{
       const rows=(f.entries[L.key]||[]).filter(r=>
         L.scheme==="hold" ? (r.reps??"")!=="" : (r.weight??"")!=="");
-      if(rows.length) entries[L.key]=rows.map(r=>({weight:r.weight,reps:r.reps??""}));
+      if(rows.length) entries[L.key]=rows.map(r=>({weight:r.weight,reps:r.reps??"",done:!!r.done}));
     });
     s.lift={entries};
   }
@@ -2357,7 +2360,15 @@ function wire(){
     e.stopPropagation();
     toggleMobilityTimer(b.dataset.mobtimer, +b.dataset.dur);
   });
-  $main.querySelectorAll("[data-resttimer]").forEach(b=>b.onclick=()=>{ toggleRestTimer(+b.dataset.resttimer); });
+  $main.querySelectorAll("[data-resttimer]").forEach(b=>b.onclick=()=>{ toggleRestTimer(b.dataset.resttimer, +b.dataset.dur); });
+  $main.querySelectorAll("[data-liftdone]").forEach(row=>row.onclick=(e)=>{
+    if(e.target.tagName==="INPUT") return;
+    const key=row.dataset.liftdone, idx=+row.dataset.idx;
+    const arr=[...(ui.form.entries[key]||[])];
+    arr[idx]={...arr[idx], done:!arr[idx].done};
+    ui.form.entries[key]=arr;
+    render();
+  });
   // finger / effort
   $main.querySelectorAll("[data-finger]").forEach(b=>b.onclick=()=>{ ui.form.finger=b.dataset.finger; render(); });
   $main.querySelectorAll("[data-effort]").forEach(b=>b.onclick=()=>{
