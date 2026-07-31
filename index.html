@@ -98,6 +98,12 @@
     border-radius:9px; color:var(--ink); text-align:center; padding:13px 6px;
     font-family:ui-monospace,monospace; font-size:15px; font-weight:700;}
 
+  /* lift set table */
+  .liftgrid{display:grid; align-items:center; gap:4px;}
+  .liftgrid .gh{font-size:9px; color:var(--faint); font-weight:700; text-transform:uppercase; text-align:center;}
+  .liftgrid .gv{font-size:12px; color:var(--sub); text-align:center; font-family:ui-monospace,monospace;}
+  .gcell{width:100%; padding:8px 2px; font-size:12px;}
+
   /* finger / effort / sleep / soreness — one shared chip component, optional 2nd-line sublabel */
   .row3{display:flex; gap:8px;}
   .chip{flex:1; border-radius:12px; padding:12px 4px; border:1.5px solid var(--line);
@@ -1337,7 +1343,7 @@ function renderLog(){
         ${stepper("Sets","sets",f.sets,"")}
       </div></div>`;
   } else if(f.type==="lift"){
-    body=LIFT_DAY.map(L=>liftBlock(L,f.entries[L.key]||[])).join("");
+    body=LIFT_DAY.map((L,li)=>liftBlock(L,f.entries[L.key]||[],li+1)).join("");
   } else {
     const done=f.mobilityDone||[];
     body=`<div class="field"><div class="flabel">10-min daily mobility</div>
@@ -1454,52 +1460,67 @@ function stepper(lab,key,val,suf){
 /* Boostcamp-ish: a clear scheme line (what today's sets actually are, not just NxM), the
    target load pulled out as its own strong line, and a last-AMRAP reference so today's
    number has something concrete to beat — rather than a bare grid of blank inputs. */
-function liftBlock(L,rows){
+/* One card per exercise: number + name + rest timer on the header row, then a compact
+   table — Set, Previous (last session's exact same set), Target, lbs/sec, Reps, done —
+   one grid row per set. "Previous" is looked up per set index, not just the last AMRAP, so
+   a straight set shows its own history rather than the AMRAP set's. */
+function liftBlock(L,rows,num){
   const sug=suggestLiftWeight(L.key);
   const schemeNote = L.scheme==="gslp" ? `Warm-up 55/70/85% → ${L.sets-1}×${L.repTarget} + AMRAP`
-    : L.scheme==="hold" ? `${L.sets} sets · hold ${L.repTarget}s · ~3min rest`
+    : L.scheme==="hold" ? `${L.sets} sets · ~3min rest`
     : `${L.sets}×${L.repTarget}`;
   const sugText = L.scheme==="hold" ? null
     : sug==null ? "no data"
     : PROGRESSABLE_LIFTS.has(L.key) ? loadText(sug) : `${loadText(sug)} (steady)`;
-  let lastAmrap="";
-  if(L.scheme==="gslp"){
-    const hist=realSessions().filter(s=>s.type==="lift"&&s.lift?.entries?.[L.key]?.length).sort((a,b)=>a.date<b.date?1:-1)[0];
-    const last=hist?.lift.entries[L.key]?.slice(-1)[0];
-    if(last) lastAmrap=`Last AMRAP: ${loadText(Number(last.weight)||0)} × ${last.reps||"?"}`;
-  }
+  const hist=realSessions().filter(s=>s.type==="lift"&&s.lift?.entries?.[L.key]?.length).sort((a,b)=>a.date<b.date?1:-1)[0];
+  const histRows=hist?.lift.entries[L.key]||[];
   const rt=ui.restTimer, restActive=rt&&rt.key===L.key, restRunning=restActive&&rt.running;
   const restLabel=restActive?`${rt.remaining}s`:`${L.rest}s`;
   const restBtn=`<button class="timerbtn${restRunning?" on":""}" data-resttimer="${L.key}" data-dur="${L.rest}">${restRunning?I.pause:I.play}<span>${restLabel}</span></button>`;
-  return `<div class="field"><div class="flabel" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-      <span>${esc(L.name)}</span>
+  const isHold=L.scheme==="hold";
+  const cols=isHold?"22px 1fr 1fr 44px 22px":"22px 1fr 1fr 42px 40px 22px";
+  const header=isHold
+    ? `<span class="gh">Set</span><span class="gh">Previous</span><span class="gh">Target</span><span class="gh">Sec</span><span class="gh"></span>`
+    : `<span class="gh">Set</span><span class="gh">Previous</span><span class="gh">Target</span><span class="gh">lbs</span><span class="gh">Reps</span><span class="gh"></span>`;
+  return `<div class="field">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:2px">
       <span style="display:flex;align-items:center;gap:8px">
-        <span style="color:var(--faint);text-transform:none;font-weight:600;letter-spacing:0;font-size:11px">${schemeNote}</span>
-        ${restBtn}
+        <span style="width:22px;height:22px;border-radius:6px;background:var(--panel2);color:var(--faint);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${num}</span>
+        <span style="font-weight:800;font-size:14px;color:var(--ink)">${esc(L.name)}</span>
       </span>
+      ${restBtn}
     </div>
-    ${sugText?`<div class="hint" style="margin-bottom:2px">Target load: <strong style="color:var(--accent)">${sugText}</strong></div>`:""}
-    ${lastAmrap?`<div class="hint" style="margin-bottom:8px">${esc(lastAmrap)}</div>`:""}
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${rows.map((r,i)=>liftSetRow(L,i,r)).join("")}
+    <div class="hint" style="margin:0 0 8px 30px">${schemeNote}${sugText?` · Target load: <strong style="color:var(--accent)">${sugText}</strong>`:""}</div>
+    <div class="liftgrid" style="grid-template-columns:${cols};margin-bottom:4px">${header}</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      ${rows.map((r,i)=>liftSetRow(L,i,r,histRows[i],cols)).join("")}
     </div></div>`;
 }
-function liftSetRow(L,i,r){
+function liftSetRow(L,i,r,prevRow,cols){
   const isAmrap=L.scheme==="gslp" && i===L.sets-1;
   const isHold=L.scheme==="hold";
   const done=!!r.done;
+  const setLabel=isAmrap?"AMRAP":String(i+1);
+  const targetText=isAmrap?"AMRAP":L.repTarget;
+  const prevText = prevRow
+    ? (isHold ? `${prevRow.reps||"?"}s` : `${loadText(Number(prevRow.weight)||0)}×${prevRow.reps||"?"}`)
+    : "—";
+  const inputs = isHold
+    ? `<input class="numin gcell" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps" value="${r.reps??""}" placeholder="sec">`
+    : `<input class="numin gcell" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="weight" value="${r.weight??""}" placeholder="${L.bw?"+lb":"lb"}">
+       <input class="numin gcell" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps" value="${r.reps??""}" placeholder="reps">`;
   // Whole row is the tap target (same pattern as the mobility checklist — press the card,
   // it highlights purple) except the input fields themselves, which need normal click/focus
   // behavior — the wire handler ignores clicks that land on an <input>.
-  return `<div class="liftrow" data-liftdone="${L.key}" data-idx="${i}" style="cursor:pointer;
-      border-color:${done?"var(--mobility)":isAmrap?"var(--accent)":"var(--line)"};
-      background:${done?"rgba(139,127,209,.13)":"var(--panel)"}">
-    <div class="name" style="color:${isAmrap?"var(--accent)":"inherit"}">${isAmrap?"AMRAP":`Set ${i+1}`}</div>
-    ${isHold?"":`<input class="numin" style="width:64px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="weight"
-      value="${r.weight??""}" placeholder="${L.bw?"+lb":"lb"}">
-    <span class="x">×</span>`}
-    <input class="numin" style="width:${isHold?"72px":"56px"}" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps"
-      value="${r.reps??""}" placeholder="${isHold?"sec":"reps"}"></div>`;
+  return `<div class="liftgrid" data-liftdone="${L.key}" data-idx="${i}" style="grid-template-columns:${cols};cursor:pointer;padding:5px 3px;border-radius:8px;
+      background:${done?"rgba(139,127,209,.13)":"transparent"};
+      border:1px solid ${done?"var(--mobility)":isAmrap?"var(--accent)":"transparent"}">
+    <span class="gv" style="color:${isAmrap?"var(--accent)":"var(--ink)"};font-weight:700">${setLabel}</span>
+    <span class="gv">${prevText}</span>
+    <span class="gv">${targetText}</span>
+    ${inputs}
+    <span class="gv" style="color:${done?"var(--mobility)":"var(--faint)"}">${done?"✓":"–"}</span>
+  </div>`;
 }
 
 /* ---- Info tab: renders TRAINING_PLAN.md in-app, fetched once and cached in memory.
