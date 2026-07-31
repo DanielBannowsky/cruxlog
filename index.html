@@ -102,6 +102,7 @@
   .liftgrid{display:grid; align-items:center; gap:4px;}
   .liftgrid .gh{font-size:9px; color:var(--faint); font-weight:700; text-transform:uppercase; text-align:center;}
   .liftgrid .gv{font-size:12px; color:var(--sub); text-align:center; font-family:ui-monospace,monospace;}
+  .liftgrid .gv svg{width:13px; height:13px; display:inline-block;}
   .gcell{width:100%; padding:8px 2px; font-size:12px;}
 
   /* finger / effort / sleep / soreness — one shared chip component, optional 2nd-line sublabel */
@@ -1457,12 +1458,12 @@ function stepper(lab,key,val,suf){
       <button class="stepbtn" data-step="${key}" data-dir="1">${I.plus}</button>
     </div></div>`;
 }
-/* Boostcamp-ish: a clear scheme line (what today's sets actually are, not just NxM), the
-   target load pulled out as its own strong line, and a last-AMRAP reference so today's
-   number has something concrete to beat — rather than a bare grid of blank inputs. */
-/* One card per exercise: number + name + rest timer on the header row, then a compact
-   table — Set, Previous (last session's exact same set), Target, lbs/sec, Reps, done —
-   one grid row per set. "Previous" is looked up per set index, not just the last AMRAP, so
+/* Each exercise is a clearly bordered card (.hcard) — number + name + rest timer up top —
+   containing its sets as a column-aligned table: a slim header row labeling the columns,
+   then each set as a .chip (same border/background toggle as the mobility checklist,
+   var(--mobility) purple when done), just laid out internally as grid columns (Set,
+   Previous, Target, lbs, Reps, done) instead of stacked text. "Previous" is looked up per
+   set index against the last logged session for this exercise, not just the last AMRAP, so
    a straight set shows its own history rather than the AMRAP set's. */
 function liftBlock(L,rows,num){
   const sug=suggestLiftWeight(L.key);
@@ -1478,11 +1479,11 @@ function liftBlock(L,rows,num){
   const restLabel=restActive?`${rt.remaining}s`:`${L.rest}s`;
   const restBtn=`<button class="timerbtn${restRunning?" on":""}" data-resttimer="${L.key}" data-dur="${L.rest}">${restRunning?I.pause:I.play}<span>${restLabel}</span></button>`;
   const isHold=L.scheme==="hold";
-  const cols=isHold?"22px 1fr 1fr 44px 22px":"22px 1fr 1fr 42px 40px 22px";
+  const cols=isHold?"1fr 1fr 1fr 44px 22px":"1fr 1fr 1fr 42px 40px 22px";
   const header=isHold
     ? `<span class="gh">Set</span><span class="gh">Previous</span><span class="gh">Target</span><span class="gh">Sec</span><span class="gh"></span>`
     : `<span class="gh">Set</span><span class="gh">Previous</span><span class="gh">Target</span><span class="gh">lbs</span><span class="gh">Reps</span><span class="gh"></span>`;
-  return `<div class="field">
+  return `<div class="hcard">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:2px">
       <span style="display:flex;align-items:center;gap:8px">
         <span style="width:22px;height:22px;border-radius:6px;background:var(--panel2);color:var(--faint);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${num}</span>
@@ -1490,9 +1491,9 @@ function liftBlock(L,rows,num){
       </span>
       ${restBtn}
     </div>
-    <div class="hint" style="margin:0 0 8px 30px">${schemeNote}${sugText?` · Target load: <strong style="color:var(--accent)">${sugText}</strong>`:""}</div>
-    <div class="liftgrid" style="grid-template-columns:${cols};margin-bottom:4px">${header}</div>
-    <div style="display:flex;flex-direction:column;gap:4px">
+    <div class="hint" style="margin:0 0 10px 30px">${schemeNote}${sugText?` · Target load: <strong style="color:var(--accent)">${sugText}</strong>`:""}</div>
+    <div class="liftgrid" style="grid-template-columns:${cols};padding:0 12px;margin-bottom:4px">${header}</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
       ${rows.map((r,i)=>liftSetRow(L,i,r,histRows[i],cols)).join("")}
     </div></div>`;
 }
@@ -1509,17 +1510,16 @@ function liftSetRow(L,i,r,prevRow,cols){
     ? `<input class="numin gcell" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps" value="${r.reps??""}" placeholder="sec">`
     : `<input class="numin gcell" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="weight" value="${r.weight??""}" placeholder="${L.bw?"+lb":"lb"}">
        <input class="numin gcell" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps" value="${r.reps??""}" placeholder="reps">`;
-  // Whole row is the tap target (same pattern as the mobility checklist — press the card,
+  // Whole chip is the tap target (same pattern as the mobility checklist — press the card,
   // it highlights purple) except the input fields themselves, which need normal click/focus
   // behavior — the wire handler ignores clicks that land on an <input>.
-  return `<div class="liftgrid" data-liftdone="${L.key}" data-idx="${i}" style="grid-template-columns:${cols};cursor:pointer;padding:5px 3px;border-radius:8px;
-      background:${done?"rgba(139,127,209,.13)":"transparent"};
-      border:1px solid ${done?"var(--mobility)":isAmrap?"var(--accent)":"transparent"}">
+  return `<div class="chip liftgrid" data-liftdone="${L.key}" data-idx="${i}" style="display:grid;grid-template-columns:${cols};cursor:pointer;padding:10px 12px;
+      border-color:${done?"var(--mobility)":isAmrap?"var(--accent)":"var(--line)"};background:${done?"rgba(139,127,209,.13)":"var(--panel)"}">
     <span class="gv" style="color:${isAmrap?"var(--accent)":"var(--ink)"};font-weight:700">${setLabel}</span>
     <span class="gv">${prevText}</span>
     <span class="gv">${targetText}</span>
     ${inputs}
-    <span class="gv" style="color:${done?"var(--mobility)":"var(--faint)"}">${done?"✓":"–"}</span>
+    <span class="gv" style="color:${done?"var(--mobility)":"var(--faint)"}">${done?I.check:"–"}</span>
   </div>`;
 }
 
