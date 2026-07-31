@@ -90,9 +90,9 @@
   .stepbtn svg{width:16px; height:16px;}
 
   /* lift rows */
-  .liftrow{background:var(--panel); border-radius:12px; padding:12px 14px;
+  .liftrow{background:var(--panel); border-radius:12px; padding:12px 14px; border:1.5px solid transparent;
     display:flex; align-items:center; gap:10px;}
-  .liftrow .name{width:52px; color:var(--ink); font-weight:800; font-size:14px;}
+  .liftrow .name{width:64px; color:var(--ink); font-weight:800; font-size:13px; flex-shrink:0;}
   .liftrow .x{color:var(--faint);}
   .numin{box-sizing:border-box; background:var(--panel2); border:1px solid var(--line);
     border-radius:9px; color:var(--ink); text-align:center; padding:13px 6px;
@@ -223,13 +223,22 @@ const GRADE_COLORS = ["#5E8A96","#5E9689","#5F9C7E","#79A066","#A3A055","#C0983F
   "#CE8B44","#D57947","#D0603F","#C24F45","#B04343",
   "#9F3C56","#8C3568","#792E7A","#66278C","#53209E","#4019B0"];
 /* One lift day/week, every phase — see TRAINING_PLAN.md "Lift Day Protocol". */
+/* Rebuilt around: Phrak's Greyskull LP-style autoregulation (warm-up 55/70/85%, 2 straight
+   sets + 1 AMRAP set, progress off the AMRAP result — see suggestLiftWeight) for the 3
+   barbell/pull-up lifts, a dedicated front lever progression (hold-based, not weight/reps),
+   and band-free prehab (no resistance bands available). One session/week, so every slot
+   earns its place: pull/press/squat for a real strength floor, front lever for the stated
+   goal, inverted row + wrist curl for the cheapest injury-prevention return given how much
+   hangboard loading is already in this plan. scheme:"gslp" drives the AMRAP progression
+   logic; scheme:"hold" is duration-based (front lever); no scheme = simple steady-load
+   accessory work. incLb is the Greyskull-style per-session progression jump. */
 const LIFT_DAY = [
-  {key:"pullup",    name:"Weighted pull-up",         short:"Pull-up",    sets:4, repTarget:"3-5",  bw:true},
-  {key:"ohp",       name:"Overhead press",           short:"OHP",        sets:3, repTarget:"5"},
-  {key:"squat",     name:"Squat (or leg press)",     short:"Squat",      sets:3, repTarget:"8-10"},
-  {key:"pullapart", name:"Band pull-apart / face pull", short:"Pull-apart", sets:3, repTarget:"15"},
-  {key:"wristext",  name:"Wrist extensor curl",      short:"Wrist ext",  sets:3, repTarget:"12"},
-  {key:"hlr",       name:"Hanging leg raise",        short:"Leg raise",  sets:3, repTarget:"8-10"},
+  {key:"frontlever", name:"Front lever progression",     short:"Front lever", sets:4, repTarget:"3-10", scheme:"hold"},
+  {key:"pullup",      name:"Weighted pull-up",            short:"Pull-up",     sets:3, repTarget:"5", bw:true, scheme:"gslp", incLb:2.5},
+  {key:"squat",       name:"Squat",                       short:"Squat",       sets:3, repTarget:"5", scheme:"gslp", incLb:5},
+  {key:"ohp",         name:"Overhead press",              short:"OHP",         sets:3, repTarget:"5", scheme:"gslp", incLb:2.5},
+  {key:"invrow",      name:"Inverted row",                short:"Inv. row",    sets:3, repTarget:"8-12"},
+  {key:"wristext",    name:"Wrist extensor curl (plate)", short:"Wrist ext",   sets:3, repTarget:"12"},
 ];
 function blankLiftEntries(){
   const o={}; LIFT_DAY.forEach(L=>{ o[L.key]=Array.from({length:L.sets},()=>({weight:"",reps:""})); });
@@ -292,13 +301,10 @@ const PHASES = [
 const TOTAL_WEEKS = PHASES.reduce((a,p)=>a+p.weeks,0);
 
 // ordered session slots per phase — exactly one lift slot/week in every phase (see TRAINING_PLAN.md).
-// "full" is the longer coaching note shown when you tap the Up Next card for detail.
-const LIFT_FULL = {
-  recon:    "6 lifts. Load: bodyweight / very light. Reps: clean, full range.",
-  strength: "6 lifts. Pull-up/OHP/squat: add load when reps clean. Others: steady, non-maxing load.",
-  power:    "6 lifts. Pull-up/OHP/squat: hold current load, no new PRs. Others: steady load, every week.",
-  perform:  "6 lifts. Reduced volume. Maintenance load only.",
-};
+// "full" is the longer coaching note shown when you tap the Up Next card for detail. Lift is
+// now a fixed year-round program (Greyskull-style AMRAP progression), independent of climbing
+// phase — same description in every phase rather than 4 near-duplicate phase-keyed variants.
+const LIFT_FULL_TEXT = "6 lifts. Pull-up/squat/OHP: warm up 55/70/85%, then 2 sets + 1 AMRAP set — progress off the AMRAP result. Front lever: timed holds. Inverted row/wrist curl: steady load, not a max-effort target.";
 /* {{grade}} is resolved at render time from your logged send history (see gradeRangeFor). */
 /* Climbing is fixed at 3x/week (the athlete's own real schedule) with lift on whatever
    other day fits — the app stays session-driven/day-agnostic (no weekday text in labels).
@@ -325,8 +331,8 @@ const WEEKLY_TEMPLATES = {
       full:"Grade: {{grade}}. Duration: 20-30min continuous movement, minimal rest. No pump."},
     {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
       full:"2nd repeater session this week. Same protocol as the other one. Edge: 20mm. Load: {{load}}. Home or gym — pair with the climb above, or do it separately."},
-    {type:"lift", label:"Lift — light",  detail:"6 lifts · light load", targetRpe:5,
-      full:LIFT_FULL.recon+" Own session — not paired with a climbing day."},
+    {type:"lift", label:"Lift", detail:"6 lifts · Greyskull-style", targetRpe:6,
+      full:LIFT_FULL_TEXT+" Own session — not paired with a climbing day."},
   ],
   strength:[
     {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · footwork drills", targetRpe:6, gradeRole:"volume",
@@ -337,24 +343,24 @@ const WEEKLY_TEMPLATES = {
       full:"Grade: {{grade}}. Active recovery / mileage."},
     {type:"climb",label:"Climb — project/limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
       full:"Grade: {{grade}}. Volume: low. Rest: full (3-5min) between attempts. Movement quality not required."},
-    {type:"lift", label:"Lift — build",  detail:"6 lifts · progressive overload", targetRpe:7,
-      full:LIFT_FULL.strength+" Own session — not paired with a climbing or hangboard day."},
+    {type:"lift", label:"Lift", detail:"6 lifts · Greyskull-style", targetRpe:6,
+      full:LIFT_FULL_TEXT+" Own session — not paired with a climbing or hangboard day."},
   ],
   power:[
     {type:"climb",label:"Climb — limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
       full:"Grade: {{grade}}. Volume: low. Rest: full between attempts."},
     {type:"climb",label:"Climb — power-endurance (linking hard moves)", detail:"4x4s · {{grade}}", targetRpe:8, gradeRole:"powerEnd",
       full:"Grade: {{grade}}. Protocol: 4x4s or linked circuits. Rest: minimal between attempts."},
-    {type:"lift", label:"Lift — maintain",  detail:"6 lifts · hold current load", targetRpe:6,
-      full:LIFT_FULL.power+" Own session — not paired with a climbing or hangboard day."},
+    {type:"lift", label:"Lift", detail:"6 lifts · Greyskull-style", targetRpe:6,
+      full:LIFT_FULL_TEXT+" Own session — not paired with a climbing or hangboard day."},
     {type:"climb",label:"Climb — volume / campus (mileage)", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}} volume, or campus (basic ladders, matching only)."},
   ],
   perform:[
     {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
       full:"Grade: {{grade}}. Rest: full between burns."},
-    {type:"lift", label:"Lift — maintain",  detail:"6 lifts · reduced volume", targetRpe:5,
-      full:LIFT_FULL.perform+" Own session — not paired with a climbing day."},
+    {type:"lift", label:"Lift", detail:"6 lifts · Greyskull-style", targetRpe:6,
+      full:LIFT_FULL_TEXT+" Own session — not paired with a climbing day."},
     {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
       full:"2nd project session this week. Grade: {{grade}}. Rest: full between burns."},
     {type:"climb",label:"Climb — volume / technique (mileage)", targetRpe:5, gradeRole:"volume",
@@ -464,8 +470,17 @@ function suggestHangLoad(protocol,grip){
   if(last.rpe!=null && last.rpe<=7) return base+5;
   return base;
 }
-const PROGRESSABLE_LIFTS = new Set(["pullup","ohp","squat"]); // per plan doc — the other 3 are prehab/maintenance, not progressive-overload targets
+const PROGRESSABLE_LIFTS = new Set(["pullup","squat","ohp"]); // Greyskull-style AMRAP progression targets — the other 3 (front lever, inverted row, wrist curl) aren't weight-progressed the same way
+/* Phrak's Greyskull LP-style autoregulation, now independent of climbing phase (this is a
+   fixed year-round barbell program, not tied to the climbing periodization cycle): judge
+   progression off the AMRAP (last) set specifically, since that's the actual autoregulating
+   signal — 2 straight sets are always at the same working weight, so topWeight IS that
+   working weight. Hit the AMRAP target (repTarget, e.g. 5) → normal jump (L.incLb). Blow way
+   past it (10+) → double jump, same as real Greyskull. Miss it → hold, don't add load onto a
+   rep target you didn't hit. Deload/pain rules unchanged and still take precedence. */
 function suggestLiftWeight(key){
+  const L=LIFT_DAY.find(x=>x.key===key);
+  if(!L || L.scheme==="hold") return null;
   const hist=realSessions().filter(s=>s.type==="lift"&&s.lift&&s.lift.entries&&s.lift.entries[key]&&s.lift.entries[key].length)
     .sort((a,b)=>a.date<b.date?1:-1);
   if(!hist.length) return null;
@@ -473,13 +488,16 @@ function suggestLiftWeight(key){
   const topWeight=Math.max(...rows.map(r=>Number(r.weight)||0));
   const cur=currentProgress();
   if(cur.isDeload) return Math.round(topWeight*0.5);
-  if(!PROGRESSABLE_LIFTS.has(key) || cur.phase.key!=="strength") return topWeight;
-  const targetReps = key==="pullup" ? 3 : key==="squat" ? 8 : 5;
-  const topSet=rows.find(r=>Number(r.weight)===topWeight);
-  const repsHit = topSet && Number(topSet.reps)>=targetReps;
   const painFlag = hist[0].finger==="pain"||hist[0].finger==="tweaky";
   if(painFlag) return topWeight;
-  return repsHit ? topWeight+5 : topWeight;
+  if(L.scheme==="gslp"){
+    const amrapReps=Number(rows[rows.length-1]?.reps)||0;
+    const target=parseInt(L.repTarget,10);
+    if(amrapReps>=target*2) return topWeight+L.incLb*2;
+    if(amrapReps>=target) return topWeight+L.incLb;
+    return topWeight;
+  }
+  return topWeight; // inverted row / wrist curl: hold steady, prehab not a max-effort target
 }
 
 /* Benchmark-gated phase exit. Reconditioning and Performance are intentionally NOT gated:
@@ -909,10 +927,12 @@ function detailOf(s){
     const l=s.lift||{};
     const parts=LIFT_DAY.map(L=>{
       const rows=(l.entries||{})[L.key]; if(!rows||!rows.length) return null;
-      const setsStr=rows.map(r=>{
-        const w=L.bw?(Number(r.weight)?`+${r.weight}`:"BW"):r.weight;
-        return `${w}×${r.reps||"?"}`;
-      }).join(",");
+      const setsStr = L.scheme==="hold"
+        ? rows.map(r=>`${r.reps||"?"}s`).join(",")
+        : rows.map(r=>{
+            const w=L.bw?(Number(r.weight)?`+${r.weight}`:"BW"):r.weight;
+            return `${w}×${r.reps||"?"}`;
+          }).join(",");
       return `${L.short} ${setsStr}`;
     }).filter(Boolean);
     return `Lift · ${parts.join("  ")||"—"}`;
@@ -927,7 +947,7 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false, loadError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,trends:false,benchmarks:false,recovery:false,strength:false,data:false}, celebrate:null, timer:null, selectedSlot:null, calMonth:{year:new Date().getFullYear(), month:new Date().getMonth()}, calSelectedDate:todayStr() };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,trends:false,benchmarks:false,recovery:false,strength:false,data:false}, celebrate:null, timer:null, restTimer:null, logStartedAt:null, selectedSlot:null, calMonth:{year:new Date().getFullYear(), month:new Date().getMonth()}, calSelectedDate:todayStr() };
 let mobilityTimerHandle=null;
 function clearMobilityTimerHandle(){ if(mobilityTimerHandle){ clearInterval(mobilityTimerHandle); mobilityTimerHandle=null; } }
 function resetMobilityTimer(){ clearMobilityTimerHandle(); ui.timer=null; }
@@ -955,6 +975,32 @@ function toggleMobilityTimer(key,dur){
     } else {
       ui.timer={key, remaining, running:true};
     }
+    render();
+  },1000);
+  render();
+}
+let restTimerHandle=null;
+function clearRestTimerHandle(){ if(restTimerHandle){ clearInterval(restTimerHandle); restTimerHandle=null; } }
+function resetRestTimer(){ clearRestTimerHandle(); ui.restTimer=null; }
+/* Generic rest timer for the Lift tab — one active timer, no per-exercise key needed since
+   you're only ever resting between one set at a time. Same tick pattern as the mobility
+   timer. Presets: 90s (accessories), 120s/180s (GSLP working sets — the research behind the
+   front lever protocol also calls for ~3min between sets, so 180s covers both). */
+function toggleRestTimer(dur){
+  const cur=ui.restTimer;
+  if(cur && cur.total===dur && cur.running){
+    clearRestTimerHandle();
+    ui.restTimer={...cur, running:false};
+    render();
+    return;
+  }
+  ui.restTimer = (cur && cur.total===dur && cur.remaining>0) ? {...cur, running:true} : {total:dur, remaining:dur, running:true};
+  clearRestTimerHandle();
+  restTimerHandle=setInterval(()=>{
+    if(!ui.restTimer || !ui.restTimer.running){ clearRestTimerHandle(); return; }
+    const remaining=ui.restTimer.remaining-1;
+    if(remaining<=0){ ui.restTimer={...ui.restTimer, remaining:0, running:false}; clearRestTimerHandle(); }
+    else ui.restTimer={...ui.restTimer, remaining, running:true};
     render();
   },1000);
   render();
@@ -1214,8 +1260,26 @@ function renderPlan(){
     ${phaseCard}`;
 }
 
+/* "How long have I been at this" clock — starts the moment you land on a fresh (non-edit)
+   log entry for any of the 4 types, keeps running across type switches within that same
+   entry, and resets on save/cancel/entering edit mode. Ticks on its own (not just on other
+   interactions) via a low-frequency interval — 30s resolution is plenty for "since I
+   started," unlike the per-second rest/mobility timers. */
+function elapsedLabel(startedAt){
+  const mins=Math.floor((Date.now()-startedAt)/60000);
+  if(mins<1) return "just started";
+  if(mins<60) return `${mins}m`;
+  return `${Math.floor(mins/60)}h ${mins%60}m`;
+}
+let logClockHandle=null;
+function clearLogClockHandle(){ if(logClockHandle){ clearInterval(logClockHandle); logClockHandle=null; } }
 function renderLog(){
   const f=ui.form;
+  if(ui.editingId){ ui.logStartedAt=null; clearLogClockHandle(); }
+  else {
+    if(ui.logStartedAt==null) ui.logStartedAt=Date.now();
+    if(!logClockHandle) logClockHandle=setInterval(render,30000);
+  }
   const gc=gradeCounts(f.grades);
   const att=f.attempts||{};
 
@@ -1266,7 +1330,20 @@ function renderLog(){
         ${stepper("Sets","sets",f.sets,"")}
       </div></div>`;
   } else if(f.type==="lift"){
-    body=LIFT_DAY.map(L=>liftBlock(L,f.entries[L.key]||[])).join("");
+    const restRow=`<div class="field">
+      <div class="liftrow" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span class="name" style="width:auto;flex-shrink:0">Rest</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${[90,120,180].map(s=>{
+            const active=ui.restTimer&&ui.restTimer.total===s;
+            const running=active&&ui.restTimer.running;
+            const label=active?`${ui.restTimer.remaining}s`:`${s}s`;
+            return `<button class="timerbtn${running?" on":""}" data-resttimer="${s}">${running?I.pause:I.play}<span>${label}</span></button>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>`;
+    body=restRow+LIFT_DAY.map(L=>liftBlock(L,f.entries[L.key]||[])).join("");
   } else {
     const done=f.mobilityDone||[];
     body=`<div class="field"><div class="flabel">10-min daily mobility</div>
@@ -1357,7 +1434,8 @@ function renderLog(){
     </div></div>`:"";
 
   return errBanner()+`
-    ${editing?`<div class="hint" style="margin-bottom:10px">Editing: save will overwrite this session.</div>`:""}
+    ${editing?`<div class="hint" style="margin-bottom:10px">Editing: save will overwrite this session.</div>`
+      :`<div class="hint" style="text-align:right;margin-bottom:6px">⏱ ${elapsedLabel(ui.logStartedAt)}</div>`}
     <div class="seg" data-seg="type">
       <button data-val="climb" class="${f.type==="climb"?"on":""}">${I.climb}Climb</button>
       <button data-val="hang" class="${f.type==="hang"?"on":""}">${I.hang}Hang</button>
@@ -1379,26 +1457,46 @@ function stepper(lab,key,val,suf){
       <button class="stepbtn" data-step="${key}" data-dir="1">${I.plus}</button>
     </div></div>`;
 }
+/* Boostcamp-ish: a clear scheme line (what today's sets actually are, not just NxM), the
+   target load pulled out as its own strong line, and a last-AMRAP reference so today's
+   number has something concrete to beat — rather than a bare grid of blank inputs. */
 function liftBlock(L,rows){
   const sug=suggestLiftWeight(L.key);
-  const sugText = sug==null ? "no data"
-    : PROGRESSABLE_LIFTS.has(L.key) ? `${loadText(sug)}` : `${loadText(sug)} (maintenance)`;
+  const schemeNote = L.scheme==="gslp" ? `Warm-up 55/70/85% → ${L.sets-1}×${L.repTarget} + AMRAP`
+    : L.scheme==="hold" ? `${L.sets} sets · hold ${L.repTarget}s · ~3min rest`
+    : `${L.sets}×${L.repTarget}`;
+  const sugText = L.scheme==="hold" ? null
+    : sug==null ? "no data"
+    : PROGRESSABLE_LIFTS.has(L.key) ? loadText(sug) : `${loadText(sug)} (steady)`;
+  let lastAmrap="";
+  if(L.scheme==="gslp"){
+    const hist=realSessions().filter(s=>s.type==="lift"&&s.lift?.entries?.[L.key]?.length).sort((a,b)=>a.date<b.date?1:-1)[0];
+    const last=hist?.lift.entries[L.key]?.slice(-1)[0];
+    if(last) lastAmrap=`Last AMRAP: ${loadText(Number(last.weight)||0)} × ${last.reps||"?"}`;
+  }
   return `<div class="field"><div class="flabel" style="display:flex;justify-content:space-between;align-items:center">
       <span>${esc(L.name)}</span>
-      <span style="color:var(--faint);text-transform:none;font-weight:600;letter-spacing:0">${L.sets}×${L.repTarget}${L.bw?" (+lb)":""}</span>
+      <span style="color:var(--faint);text-transform:none;font-weight:600;letter-spacing:0;font-size:11px">${schemeNote}</span>
     </div>
-    <div class="hint" style="margin-bottom:8px">Load: <strong style="color:var(--accent)">${sugText}</strong></div>
+    ${sugText?`<div class="hint" style="margin-bottom:2px">Target load: <strong style="color:var(--accent)">${sugText}</strong></div>`:""}
+    ${lastAmrap?`<div class="hint" style="margin-bottom:8px">${esc(lastAmrap)}</div>`:""}
     <div style="display:flex;flex-direction:column;gap:8px">
       ${rows.map((r,i)=>liftSetRow(L,i,r)).join("")}
     </div></div>`;
 }
 function liftSetRow(L,i,r){
-  return `<div class="liftrow"><div class="name">Set ${i+1}</div>
-    <input class="numin" style="width:72px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="weight"
+  const isAmrap=L.scheme==="gslp" && i===L.sets-1;
+  const isHold=L.scheme==="hold";
+  const filled = isHold ? (r.reps??"")!=="" : (r.weight??"")!=="" && (r.reps??"")!=="";
+  return `<div class="liftrow"${isAmrap?' style="border-color:var(--accent)"':""}>
+    <div class="name" style="color:${isAmrap?"var(--accent)":"inherit"}">
+      ${filled?`<span style="color:var(--good)">✓</span> `:""}${isAmrap?"AMRAP":`Set ${i+1}`}
+    </div>
+    ${isHold?"":`<input class="numin" style="width:64px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="weight"
       value="${r.weight??""}" placeholder="${L.bw?"+lb":"lb"}">
-    <span class="x">×</span>
-    <input class="numin" style="width:64px" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps"
-      value="${r.reps??""}" placeholder="reps"></div>`;
+    <span class="x">×</span>`}
+    <input class="numin" style="width:${isHold?"72px":"56px"}" inputmode="decimal" data-lift="${L.key}" data-idx="${i}" data-fld="reps"
+      value="${r.reps??""}" placeholder="${isHold?"sec":"reps"}"></div>`;
 }
 
 /* ---- Info tab: renders TRAINING_PLAN.md in-app, fetched once and cached in memory.
@@ -2105,7 +2203,8 @@ function valid(){
   const f=ui.form;
   if(f.type==="climb") return (f.grades.length>0 || Object.values(f.attempts||{}).some(v=>v>0)) && !!f.finger;
   if(f.type==="hang") return !!f.finger;
-  if(f.type==="lift") return LIFT_DAY.some(L=>(f.entries[L.key]||[]).some(r=>(r.weight??"")!==""));
+  if(f.type==="lift") return LIFT_DAY.some(L=>(f.entries[L.key]||[]).some(r=>
+    L.scheme==="hold" ? (r.reps??"")!=="" : (r.weight??"")!==""));
   if(f.type==="mobility") return (f.mobilityDone||[]).length>0;
   return false;
 }
@@ -2156,7 +2255,8 @@ function commitSave(){
   if(f.type==="lift"){
     const entries={};
     LIFT_DAY.forEach(L=>{
-      const rows=(f.entries[L.key]||[]).filter(r=>(r.weight??"")!=="");
+      const rows=(f.entries[L.key]||[]).filter(r=>
+        L.scheme==="hold" ? (r.reps??"")!=="" : (r.weight??"")!=="");
       if(rows.length) entries[L.key]=rows.map(r=>({weight:r.weight,reps:r.reps??""}));
     });
     s.lift={entries};
@@ -2190,8 +2290,8 @@ function commitSave(){
   const keepType=f.type, keepDate=f.date;
   ui.editingId=null;
   ui.form=freshForm(keepType); ui.form.date=keepDate;
-  ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
-  ui.selectedSlot=null;
+  ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); resetRestTimer();
+  ui.selectedSlot=null; ui.logStartedAt=null;
   ui.flash=true; render();
   setTimeout(()=>{ ui.flash=false; ui.celebrate=null; render(); },ui.celebrate?2800:2000);
 }
@@ -2202,7 +2302,7 @@ function wire(){
     const t=b.dataset.tab;
     if(t==="log" && ui.editingId){ ui.editingId=null; ui.form=freshForm(); ui.gradeExpanded=false; ui.logMoreOpen=false; }
     if(t!=="plan") ui.progressUndo=null;
-    if(t!=="log") resetMobilityTimer();
+    if(t!=="log"){ resetMobilityTimer(); resetRestTimer(); clearLogClockHandle(); }
     ui.tab=t; render();
   });
 
@@ -2210,7 +2310,7 @@ function wire(){
   $main.querySelectorAll("[data-seg]").forEach(seg=>{
     seg.querySelectorAll("button").forEach(b=>b.onclick=()=>{
       const key=seg.dataset.seg, val=b.dataset.val;
-      if(key==="type"){ ui.form.type=val; ui.gradeExpanded=false; resetMobilityTimer(); if(!ui.editingId) applySuggestions(ui.form); }
+      if(key==="type"){ ui.form.type=val; ui.gradeExpanded=false; resetMobilityTimer(); resetRestTimer(); if(!ui.editingId) applySuggestions(ui.form); }
       else {
         ui.form[key]=val;
         if((key==="protocol"||key==="grip") && !ui.editingId) ui.form.addedLb=suggestHangLoad(ui.form.protocol,ui.form.grip);
@@ -2257,6 +2357,7 @@ function wire(){
     e.stopPropagation();
     toggleMobilityTimer(b.dataset.mobtimer, +b.dataset.dur);
   });
+  $main.querySelectorAll("[data-resttimer]").forEach(b=>b.onclick=()=>{ toggleRestTimer(+b.dataset.resttimer); });
   // finger / effort
   $main.querySelectorAll("[data-finger]").forEach(b=>b.onclick=()=>{ ui.form.finger=b.dataset.finger; render(); });
   $main.querySelectorAll("[data-effort]").forEach(b=>b.onclick=()=>{
@@ -2272,7 +2373,7 @@ function wire(){
   const lmt=$main.querySelector("#logMoreToggle"); if(lmt) lmt.onclick=()=>{ ui.logMoreOpen=!ui.logMoreOpen; render(); };
   // save
   const sv=$main.querySelector("#save"); if(sv) sv.onclick=commitSave;
-  const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=freshForm(); ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); render(); };
+  const ce=$main.querySelector("#cancelEdit"); if(ce) ce.onclick=()=>{ ui.editingId=null; ui.form=freshForm(); ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); resetRestTimer(); render(); };
   // history delete — two-tap confirm (iOS standalone PWAs suppress window.confirm)
   $main.querySelectorAll("[data-del]").forEach(b=>b.onclick=(e)=>{
     e.stopPropagation();
@@ -2298,7 +2399,7 @@ function wire(){
   // history card tap -> edit
   $main.querySelectorAll("[data-edit]").forEach(card=>card.onclick=()=>{
     const s=store.sessions.find(x=>x.id===card.dataset.edit); if(!s)return;
-    ui.editingId=s.id; ui.form=loadSessionIntoForm(s); ui.tab="log"; ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); render();
+    ui.editingId=s.id; ui.form=loadSessionIntoForm(s); ui.tab="log"; ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); resetRestTimer(); render();
   });
   // plan tab
   const lt=$main.querySelector("#logToday"); if(lt) lt.onclick=()=>{
@@ -2306,13 +2407,13 @@ function wire(){
     const chosen = (ui.selectedSlot!=null && cur.slots[ui.selectedSlot]) ? cur.slots[ui.selectedSlot] : cur.next;
     ui.editingId=null;
     ui.form=freshForm(chosen.type, chosen.protocol, chosen.gradeRole);
-    ui.gradeExpanded=false; ui.logMoreOpen=false;
+    ui.gradeExpanded=false; ui.logMoreOpen=false; ui.logStartedAt=null;
     ui.tab="log"; render();
   };
   const lm=$main.querySelector("#mobilityCard"); if(lm) lm.onclick=()=>{
     ui.editingId=null;
     ui.form=freshForm("mobility");
-    ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
+    ui.gradeExpanded=false; ui.logMoreOpen=false; ui.logStartedAt=null; resetMobilityTimer(); resetRestTimer();
     ui.tab="log"; render();
   };
   // Calorie check-in — direct tap on the Plan tab, no session record, just a date-keyed
@@ -2339,7 +2440,7 @@ function wire(){
     ui.editingId=null;
     ui.form=freshForm(type);
     ui.form.date=ui.calSelectedDate;
-    ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer();
+    ui.gradeExpanded=false; ui.logMoreOpen=false; ui.logStartedAt=null; resetMobilityTimer(); resetRestTimer();
     ui.tab="log"; render();
   });
   const upsertBenchmark=(metric,date,val)=>{

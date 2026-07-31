@@ -52,54 +52,52 @@ This is aggressive but realistic *given the "rebuilding" starting point* — som
 **Goal:** rebuild tendon tolerance, general work capacity, and movement fluency before loading anything near-max.
 - Climbing: 3 sessions/session-week, volume-focused. V1–V4 — up to your comfortable ceiling is fine, the constraint is volume/footwork focus and no *limit* attempts, not an arbitrarily low grade cap. One of these is ARC-style (Aerobic Restoration & Capillarity, per Hörst) traversing/easy bouldering for 20-30 min continuous movement.
 - Hangboard: **repeaters only**, moderate edge (~20mm), bodyweight, Eva López beginner protocol (7s hang / 3s rest x 6, 3 min between sets, 2 sets per grip type), 2 sessions/session-week — home or gym, optionally same-session as a climb.
-- Weights: **1 standalone session/session-week** — see Lift Day Protocol below, light load.
+- Weights: **1 standalone session/week** — see Lift Day Protocol below. Same program every phase now (see that section for why).
 - No limit bouldering, no max hangs, no campus board this phase.
 
 ### Phase 1 — Strength Base (8 session-weeks)
 **Goal:** build the max-strength ceiling (fingers + pull) that later power work will convert into hard moves.
 - Climbing: 3 sessions/session-week — two volume days (one of them volume/ARC) and one project/limit session at V5-V6.
 - Hangboard: 1 repeater session/session-week (home or gym, optionally same-session as a volume climb) for tendon durability. Max-hang strength testing is self-managed on weekends (see "Training cadence and equipment constraints" above) — not a prescribed slot.
-- Weights: **1 standalone session/session-week** — see Lift Day Protocol below, progressive overload.
+- Weights: **1 standalone session/week** — see Lift Day Protocol below. Same program every phase now (see that section for why).
 - Deload every 4th session-week: halve hangboard/lift volume, keep climbing light.
 
 ### Phase 2 — Power & Power-Endurance (8 session-weeks)
 **Goal:** convert raw strength into climbing-specific power (dynamic movement, campus-board coordination) and the ability to link hard moves (power-endurance).
 - Climbing: 3 sessions/session-week — a limit-bouldering session, a power-endurance session (4x4s or linked circuits), and a volume/campus day.
 - Hangboard: self-managed on weekends, not a prescribed slot (see above) — this phase's plan only maintains what Strength Base built, so there's no repeater slot here either.
-- Weights: **1 standalone session/session-week** — see Lift Day Protocol below, maintenance load, no new PRs.
+- Weights: **1 standalone session/week** — see Lift Day Protocol below. Same program every phase now (see that section for why).
 - Deload every 4th session-week as before.
 
 ### Phase 3 — Performance / Send Phase (6 session-weeks)
 **Goal:** target grade progress — V6→V7→V8 attempts, technique refinement on personal weaknesses, tapering physical training volume so climbing performance peaks.
 - Climbing: 3 sessions/session-week, mostly projecting, 1 volume/technique day.
 - Hangboard: self-managed on weekends, not a prescribed slot (see above).
-- Weights: **1 standalone session/session-week** — see Lift Day Protocol below, reduced volume.
+- Weights: **1 standalone session/week** — see Lift Day Protocol below. Same program every phase now (see that section for why).
 - Reassess: if stalled at a grade for 3+ session-weeks, that grade is your new "Phase 1 target" — cycle back into a shorter (6-8 session-week) strength block focused on the specific limiter (finger strength vs power vs endurance) before resuming projecting.
 
 A "session-week" completes once you've logged every slot in that phase's list, in any order, at whatever pace fits your life — it is not a fixed 7-day calendar week. See "Session order per phase" below for the exact list the app cycles through.
 
-## Lift Day Protocol (1x/week, every phase)
+## Lift Day Protocol (1x/week, fixed program, independent of climbing phase)
 
-One dedicated lift session per session-week, every phase, no exceptions. Same 6 exercises throughout the whole 26-session-week plan — only the load/intensity target changes by phase. This is deliberately not a full powerlifting split: the goal is a strength floor and injury-resilience, not a second training axis competing with climbing/hangboard recovery.
+One dedicated lift session per week, standalone (never paired with a climbing or hangboard day). Rebuilt around three real constraints: only 1 session/week available, no resistance bands, and a stated goal of training toward a front lever — plus the equipment actually on hand (squat rack, pull-up bar, barbell + plates to 335lb, flat bench). Because there's only one session/week to work with, this is no longer phase-gated like the rest of the plan — it runs the same progression year-round, independent of the climbing periodization cycle.
 
 | Exercise | Sets × Reps | Why it's here |
 |---|---|---|
-| Weighted pull-up | 4×3-5 | Primary strength driver — raises the ceiling that power/power-endurance climbing work draws from. Source: Anderson & Anderson, *RCTM* "Foundational Training." |
-| Overhead press | 3×5 | Structural push/pull balance — reduces shoulder overuse risk from climbing's pull-dominant loading. |
-| Squat (or leg press) | 3×8-10 | General lower-body strength and injury resilience — not a climbing-performance lever the way finger/pull strength is, but supports overall athleticism, body composition, and drop-landing/fall tolerance. Source: original rationale in this doc's guiding principles — general strength training raises resilience even where legs aren't the limiter. |
-| Band pull-apart / face pull | 3×15 | Scapular/rotator-cuff prehab. Source: standard recommendation across climbing injury-prevention literature (Schöffl et al.). |
-| Wrist extensor curl | 3×12 | Elbow prehab — protects against golfer's/tennis elbow from high hangboard + pulling volume. |
-| Hanging leg raise | 3×8-10 | Core strength for body tension on steep terrain; also loads the same grip briefly under low finger-intensity conditions. |
+| Front lever progression | 4 sets, hold 3-10s, ~3min rest | Direct work toward the stated goal — trained as timed holds through the standard tuck → advanced tuck → straddle → full progression, not a weight/rep lift. Also loads the same hollow-body/anti-extension core pattern a hanging leg raise would, so it replaces that slot rather than adding to it. |
+| Weighted pull-up | 2×5 + 1 AMRAP | Primary strength driver — raises the ceiling that power/power-endurance climbing work draws from, and shares the same lat/scap strength base the front lever needs. Source: Anderson & Anderson, *RCTM* "Foundational Training." |
+| Squat | 2×5 + 1 AMRAP | The only real lower-body/general-strength driver this equipment list supports — keeps that off climbing's plate entirely. |
+| Overhead press | 2×5 + 1 AMRAP | Structural push/pull balance — reduces shoulder overuse risk from climbing's pull-dominant loading, cheapest way to keep it in with only one session/week. |
+| Inverted row | 3×8-12 | Band-free scapular/rear-delt prehab (no bands available) — bar racked low in the squat rack. Horizontal-pull strength also feeds the front lever. Source: standard recommendation across climbing injury-prevention literature (Schöffl et al.) for the scap-health rationale; inverted row substituted for the band pull-apart/face pull for equipment reasons. |
+| Wrist extensor curl (plate) | 3×12 | Elbow prehab — protects against golfer's/tennis elbow from high hangboard + pulling volume. Held plate substituted for a dumbbell/band version, same movement. |
 
-Per-phase intensity target:
-- **Reconditioning:** bodyweight or very light added weight, clean full-range reps — re-grooving patterns, not chasing numbers.
-- **Strength Base:** progressive overload — add weight to the pull-up, OHP, and squat session over session as long as reps stay clean.
-- **Power & Power-Endurance:** maintain current loads, no new PRs — climbing sessions are the priority this phase.
-- **Performance / Send:** light maintenance only, enough to keep the signal alive without leaving you sore for a project day.
+**Weighted pull-up, squat, and overhead press use a Phrak's Greyskull LP-style scheme**: warm up 55%/70%/85% of your working weight (4/3/2 reps), then 2 straight sets at your working weight followed by one AMRAP (as many reps as possible) set at that same weight. Progression is autoregulated off the AMRAP result, not a flat weekly add: hit the rep target (5) → add 2.5lb (pull-up, OHP) or 5lb (squat) next session; blow past it (10+) → double that jump; miss the target → hold at the same weight. Source: Phrak's Greyskull LP, a well-documented linear-progression barbell program (structure verified against multiple current program trackers/write-ups, not from memory).
 
-Band pull-apart, wrist extensor curl, and hanging leg raise stay at a steady, non-maxing effort in every phase — they're prehab, not progressive-overload targets, so the app never auto-suggests adding weight to them.
+**Front lever progression** follows the standard calisthenics sequence — tuck front lever, advanced tuck, single-leg, straddle, full — each stage roughly corresponding to 45-50%, 65-70%, and 85-90% of bodyweight as effective load through the lever arm. Hold 3-10s per set for 4-5 sets, minimum ~3min rest between sets (tendon/CNS demand is high for a short isometric hold); advance to the next stage once holds feel controlled at the top of that range. Source: standard progression and set/rest guidance as published across current calisthenics coaching resources (GymnasticBodies-style progression terminology; verified this round, not from memory).
 
-Antagonist and wrist work (rows 2-4) stay in at a steady, non-maxing effort in every phase — they're prehab, not the point of the session, and skipping them is how overuse injuries creep in later.
+Inverted row and wrist extensor curl stay at a steady, non-maxing effort — they're prehab, not progressive-overload targets, so the app never auto-suggests adding weight to them.
+
+**Max-weight pull-up and max-hang testing are not part of this lift day at all** — see "Training cadence and equipment constraints" above. This athlete tests both on their own on weekends and logs them via Benchmarks, so the lift day itself only contains what's meant to be trained weekly.
 
 ## Daily Mobility (10 minutes, every day)
 
@@ -202,6 +200,8 @@ This is real autoregulation (Source: standard resistance-training autoregulation
 - Mundry, S., Steinmetz, G., Atkinson, E.J., Schilling, A.F., Schöffl, V.R., Saul, D. (2021). *Hangboard training in advanced climbers: A randomized controlled trial.* Scientific Reports 11:13530. Same research group as the Saul et al. (2019) citation above; this trial's own hangboard protocol ran 2-3 sessions/week, not back-to-back — cited for the fixed Mon/Wed/Sat schedule and finger recovery spacing.
 - Eric J. Hörst — "Training Cafe" episode #34, trainingforclimbing.com (in addition to *Training for Climbing*, already cited above). Source for "3-4 climbing-specific training days per week and one complete rest day per week" — the fixed 3x/week (Mon/Wed/Sat) schedule sits within that range.
 - "The Best Time to Hangboard: Before or After Climbing?" (omaharockgym.com) and "Hangboard Training After Climbing" (thehangboard.com) — current climbing-coaching sources, not peer-reviewed, but consistent with each other: max hangs before climbing (fresh fingers; fatigued tendons are the specific injury-risk mechanism), repeaters after (submax, fine once warm). Basis for repeaters going after climbing in the one remaining same-session pairing — max-hang testing itself is no longer a plan slot (self-managed on weekends), so its before-climbing guidance no longer applies to anything in the weekly templates.
+- Phrak's Greyskull LP — a widely-reproduced linear-progression barbell program (structure verified this round against multiple current program trackers/write-ups: warm-up 55/70/85%, 2 straight sets + 1 AMRAP set, autoregulated progression off the AMRAP result, double progression on 10+ reps). Not a peer-reviewed source, but a well-established, widely-run program — basis for the Lift Day's pull-up/squat/OHP scheme.
+- Front lever progression standards (tuck → advanced tuck → straddle → full, ~45-50%/65-70%/85-90% of bodyweight through the lever arm; 3-10s holds, 4-5 sets, ~3min rest) — verified this round against multiple current calisthenics coaching sources, not peer-reviewed literature, but consistent across sources and standard terminology in that community.
 
 **Caveat:** several of the above (Philippe et al., Schweizer & Hudek) are cited from memory of the general findings/thrust of published climbing-science literature — verify exact figures/years before quoting them anywhere user-facing. The protocols (López repeaters, Bechtel standards, Hörst/Anderson periodization) are well-established and widely reproduced in the climbing training community, but treat this doc as a first draft to sanity-check, not a peer-reviewed citation list.
 
