@@ -61,20 +61,16 @@
     text-transform:uppercase; margin-bottom:10px;}
 
   /* grade cards — one combined card per grade, tracking sends + attempts together */
-  .gcombogrid{display:grid; grid-template-columns:repeat(2,1fr); gap:8px;}
-  .gcombo{border-radius:12px; border:1.5px solid var(--line); background:var(--panel); padding:10px 12px;}
-  .gcombo.suggested{border-color:var(--accent); background:rgba(111,179,201,.10);}
-  .gcombo-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+  .gcombogrid{display:flex; flex-direction:column; gap:5px;}
+  .gcombo{padding:8px 12px;}
   .gcombo .glab{font-family:ui-monospace,monospace; font-weight:800; font-size:14px; color:var(--ink);}
-  .gcombo-row{display:flex; align-items:center; justify-content:space-between; margin-top:6px;}
-  .gcombo-row:first-of-type{margin-top:0;}
-  .gcombo-lab{color:var(--sub); font-size:12px; font-weight:600;}
+  .gcombo-lab{color:var(--faint); font-size:10px; font-weight:700;}
   .gctl{display:flex; align-items:center; gap:4px;}
-  .gcombo .gval{font-family:ui-monospace,monospace; font-size:15px; font-weight:700;
-    min-width:20px; text-align:center; color:var(--ink);}
-  .gstepbtn{width:36px; height:36px; border-radius:8px; border:1px solid var(--line);
-    background:var(--panel2); color:var(--ink); display:flex; align-items:center; justify-content:center;}
-  .gstepbtn svg{width:13px; height:13px;}
+  .gcombo .gval{font-family:ui-monospace,monospace; font-size:13px; font-weight:700;
+    min-width:14px; text-align:center; color:var(--ink);}
+  .gstepbtn{width:26px; height:26px; border-radius:7px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--ink); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .gstepbtn svg{width:11px; height:11px;}
   .hint{color:var(--faint); font-size:12px; margin-top:8px;}
 
   /* stepper block */
@@ -221,7 +217,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v46";
+const APP_VERSION = "v47";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -1311,18 +1307,56 @@ function renderLog(){
     const visLo = ui.gradeExpanded?0:Math.min(padLo, used.length?Math.min(...used):padLo);
     const visHi = ui.gradeExpanded?maxG:Math.max(padHi, used.length?Math.max(...used):padHi);
     const range=Array.from({length:visHi-visLo+1},(_,i)=>visLo+i);
-    const gradeStep=(g,kind,val)=>`<div class="gcombo-row"><span class="gcombo-lab">${kind==="sends"?"Sends":"Attempts"}</span>
-        <div class="gctl">
-          <button class="gstepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="-1">${I.minus}</button>
-          <span class="gval">${val}</span>
-          <button class="gstepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="1">${I.plus}</button>
-        </div></div>`;
+    // Deliberately includes {seed:true} sample sessions, same exception gradePyramid() makes —
+    // "Load sample data" exists so this row previews as filled-out too, not just the chart.
+    const allTimeSends=sendCountsByGrade(store.sessions);
+    // Total tries per grade, lifetime — NOT just extra fails beyond sends. bumpGrade() keeps
+    // f.attempts[g] send-inclusive (a send is itself a try), so the live att[g] stepper value
+    // used below is already a total-tries count; this lifetime tally has to use the same
+    // max(sends,attempts) definition per session or the two numbers wouldn't be comparable.
+    const allTimeAttempts={};
+    store.sessions.filter(s=>s.type==="climb").forEach(s=>{
+      const c=gradeCounts(s.grades);
+      const gset=new Set([...Object.keys(c),...Object.keys(s.attempts||{})]);
+      gset.forEach(g=>{
+        allTimeAttempts[g]=(allTimeAttempts[g]||0)+Math.max(c[g]||0,(s.attempts||{})[g]||0);
+      });
+    });
+    // Lifetime totals per visible grade (incl. today's not-yet-saved taps), and the sends max
+    // among *just this visible window* — not the global all-time max — so a huge V0 warm-up
+    // count doesn't flatten the bar for the harder grades actually being worked today.
+    const totals=Object.fromEntries(range.map(g=>[g,{
+      sends:(allTimeSends[g]||0)+(gc[g]||0),
+      attempts:(allTimeAttempts[g]||0)+(att[g]||0),
+    }]));
+    const gradeStep=(g,kind,val)=>`<span class="gctl">
+        <span class="gcombo-lab">${kind==="sends"?"S":"A"}</span>
+        <button class="gstepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="-1">${I.minus}</button>
+        <span class="gval">${val}</span>
+        <button class="gstepbtn" data-gstep="${kind}" data-grade="${g}" data-dir="1">${I.plus}</button>
+      </span>`;
     const gradeCard=(g)=>{
       const suggested = g>=lo && g<=hi;
-      return `<div class="gcombo${suggested?" suggested":""}">
-        <div class="gcombo-head"><span class="glab">V${g}</span>${suggested?`<span class="hint" style="margin:0;color:var(--accent)">target</span>`:""}</div>
-        ${gradeStep(g,"sends",gc[g]||0)}
-        ${gradeStep(g,"attempts",att[g]||0)}
+      const {sends,attempts}=totals[g];
+      // Bar = send success rate at this grade (sends/attempts), matching the fraction shown
+      // above it — not volume relative to other grades, which didn't fill even at 100% sends.
+      const pct=attempts?Math.round(sends/attempts*100):0;
+      return `<div class="chip gcombo" style="cursor:default;flex-direction:row;justify-content:space-between;align-items:center;text-align:left;
+          border-color:${suggested?"var(--accent)":"var(--line)"};
+          background:${suggested?"rgba(111,179,201,.10)":"var(--panel)"}">
+        <span style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+          <span class="glab">V${g}</span>
+        </span>
+        <span style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;padding:0 10px">
+          <span style="font-family:ui-monospace,monospace;font-weight:800;font-size:13px;color:var(--ink)">${sends} <span style="color:var(--faint);font-weight:600">/ ${attempts}</span></span>
+          <span style="width:100%;height:3px;border-radius:2px;background:var(--line);overflow:hidden">
+            <span style="display:block;height:100%;width:${pct}%;background:${suggested?"var(--accent)":"var(--faint)"}"></span>
+          </span>
+        </span>
+        <span style="display:flex;align-items:center;gap:18px;flex-shrink:0">
+          ${gradeStep(g,"sends",gc[g]||0)}
+          ${gradeStep(g,"attempts",att[g]||0)}
+        </span>
       </div>`;
     };
     body=`<div class="field"><div class="flabel">Sends &amp; attempts by grade</div>
@@ -2657,8 +2691,15 @@ function generateTestSessions(){
     {day:29, grades:[6], attempts:{7:3,8:2}},
   ];
   climbPlan.forEach((c,i)=>{
+    // A send is itself a try, so attempts[g] must be at least the send count at that grade —
+    // real logging (bumpGrade) keeps them in sync; sample data has to honor the same
+    // invariant or the sends/attempts stat and pyramid chart show nonsense (e.g. a grade with
+    // 2 logged sends but 0 recorded attempts).
+    const sendCounts=gradeCounts(c.grades);
+    const attempts={...c.attempts};
+    Object.entries(sendCounts).forEach(([g,n])=>{ attempts[g]=Math.max(attempts[g]||0,n); });
     out.push({id:uid(), seed:true, date:dateFromDaysAgo(c.day), type:"climb",
-      grades:[...c.grades], attempts:{...c.attempts}, rpe:i%3===0?6:i%3===1?7:8,
+      grades:[...c.grades], attempts, rpe:i%3===0?6:i%3===1?7:8,
       finger:i===7?"tweaky":"good", notes:""});
   });
   for(let w=0; w<4; w++){
