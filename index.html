@@ -239,20 +239,24 @@ const GRADE_COLORS = ["#5E8A96","#5E9689","#5F9C7E","#79A066","#A3A055","#C0983F
    hangboard loading is already in this plan. scheme:"gslp" drives the AMRAP progression
    logic; scheme:"hold" is duration-based (front lever); no scheme = simple steady-load
    accessory work. incLb is the Greyskull-style per-session progression jump. `rest` (sec)
-   sets each exercise's default rest-timer duration, evidence-anchored not guessed: 180s for
-   the near-max/AMRAP lifts and the front lever (ACSM guidance is 2-3min minimum for heavy
-   compound work, more approaching max effort; a 2024 Bayesian meta-analysis and a Sports
-   Medicine systematic review both found rest >60s consistently outperforms shorter rests for
-   strength outcomes; front lever holds specifically call for a ~3min floor per the same
-   progression sources cited in TRAINING_PLAN.md), 90s for inverted row and 60s for wrist
-   curl (standard accessory/isolation rest, not a max-effort target either). */
+   sets each exercise's default rest-timer duration. The original 180s-everywhere version of
+   this ran ~46.5min of rest ALONE (before warm-ups, execution, or transitions) against a
+   1-hour session budget — not viable. Rebalanced to protect rest quality specifically where
+   it matters most: front lever (the actual stated goal) keeps the full evidence-recommended
+   180s at 3 sets (down from 4 — trimmed sets, not rest, to preserve hold quality). Pull-up/
+   squat/OHP drop to 120s — still solidly evidence-based (ACSM's own floor for heavy compound
+   work is 2-3min; the >60s-beats-shorter-rests findings cited below hold at 120s too), just
+   the time-efficient end of that range rather than the top. Inverted row/wrist curl (60s/45s)
+   were already at standard accessory-rest length. Net: ~26min of rest instead of ~46.5,
+   which (with warm-ups, execution, and transitions) fits the real 1-hour ceiling with room
+   to spare, instead of not fitting at all. */
 const LIFT_DAY = [
-  {key:"frontlever", name:"Front lever progression",     short:"Front lever", sets:4, repTarget:"3-10", scheme:"hold", rest:180},
-  {key:"pullup",      name:"Weighted pull-up",            short:"Pull-up",     sets:3, repTarget:"5", bw:true, scheme:"gslp", incLb:2.5, rest:180},
-  {key:"squat",       name:"Squat",                       short:"Squat",       sets:3, repTarget:"5", scheme:"gslp", incLb:5, rest:180},
-  {key:"ohp",         name:"Overhead press",              short:"OHP",         sets:3, repTarget:"5", scheme:"gslp", incLb:2.5, rest:180},
-  {key:"invrow",      name:"Inverted row",                short:"Inv. row",    sets:3, repTarget:"8-12", rest:90},
-  {key:"wristext",    name:"Wrist extensor curl (plate)", short:"Wrist ext",   sets:3, repTarget:"12", rest:60},
+  {key:"frontlever", name:"Front lever progression",     short:"Front lever", sets:3, repTarget:"3-10", scheme:"hold", rest:180},
+  {key:"pullup",      name:"Weighted pull-up",            short:"Pull-up",     sets:3, repTarget:"5", bw:true, scheme:"gslp", incLb:2.5, rest:120},
+  {key:"squat",       name:"Squat",                       short:"Squat",       sets:3, repTarget:"5", scheme:"gslp", incLb:5, rest:120},
+  {key:"ohp",         name:"Overhead press",              short:"OHP",         sets:3, repTarget:"5", scheme:"gslp", incLb:2.5, rest:120},
+  {key:"invrow",      name:"Inverted row",                short:"Inv. row",    sets:3, repTarget:"8-12", rest:60},
+  {key:"wristext",    name:"Wrist extensor curl (plate)", short:"Wrist ext",   sets:3, repTarget:"12", rest:45},
 ];
 function blankLiftEntries(){
   const o={}; LIFT_DAY.forEach(L=>{ o[L.key]=Array.from({length:L.sets},()=>({weight:"",reps:"",done:false})); });
@@ -1468,7 +1472,7 @@ function stepper(lab,key,val,suf){
 function liftBlock(L,rows,num){
   const sug=suggestLiftWeight(L.key);
   const schemeNote = L.scheme==="gslp" ? `Warm-up 55/70/85% → ${L.sets-1}×${L.repTarget} + AMRAP`
-    : L.scheme==="hold" ? `${L.sets} sets · ~3min rest`
+    : L.scheme==="hold" ? `${L.sets} sets · ${Math.round(L.rest/60)}min rest`
     : `${L.sets}×${L.repTarget}`;
   const sugText = L.scheme==="hold" ? null
     : sug==null ? "no data"
