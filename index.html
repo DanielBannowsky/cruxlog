@@ -45,9 +45,12 @@
   .seg{display:flex; gap:4px; background:var(--panel2); padding:4px; border-radius:12px;}
   .seg button{flex:1; border:none; border-radius:9px; padding:10px 4px;
     font-size:14px; font-weight:700; background:transparent; color:var(--sub);
-    display:flex; align-items:center; justify-content:center; gap:6px; transition:background .15s;}
+    display:flex; align-items:center; justify-content:center; gap:6px; transition:background .15s;
+    white-space:nowrap; overflow:hidden;}
   .seg button.on{background:var(--accent); color:#0E1418;}
-  .seg svg{width:16px; height:16px;}
+  .seg svg{width:16px; height:16px; flex-shrink:0;}
+  .seg[data-seg="type"] button{font-size:11.5px; padding:9px 2px; gap:4px;}
+  .seg[data-seg="type"] svg{width:14px; height:14px;}
 
   .daterow{display:flex; align-items:center; justify-content:space-between; margin:16px 2px 4px;}
   .daterow input{background:transparent; border:none; color:var(--ink);
@@ -155,10 +158,6 @@
   .stat .lab{color:var(--faint); font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;}
   .stat .v{font-family:ui-monospace,monospace; font-size:26px; font-weight:800; margin-top:4px; color:var(--ink);}
   .stat .sub{font-size:11px; color:var(--faint); margin-top:2px;}
-  .streak{display:flex; align-items:center; gap:6px; margin-top:4px; color:var(--faint);}
-  .streak svg{width:13px; height:13px; flex-shrink:0;}
-  .streak .txt{font-size:12px; color:var(--faint); font-weight:600;}
-  .streak .txt small{color:var(--faint); font-weight:600;}
   .btn2{width:100%; border-radius:14px; padding:16px; background:var(--panel2); color:var(--ink);
     font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px;
     border:1px solid var(--line); transition:background .2s; margin-bottom:10px;}
@@ -217,7 +216,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v47";
+const APP_VERSION = "v48";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -285,6 +284,28 @@ const MOBILITY_ROUTINE = [
   {key:"ankle",    name:"Ankle dorsiflexion rocks",         short:"Ankles",   dur:"60s"},
   {key:"neck",     name:"Neck / upper-trap release",        short:"Neck",     dur:"60s"},
 ];
+/* Abrahangs — Emil Abrahamsson's low-intensity "no-hang" finger protocol (Gilmore, Klimek,
+   Abrahamsson & Baar, Sports Med Open 2024, PMID 39560837), originally a feet-on-the-ground
+   press against a fixed edge at ~70-80% effort, adapted here for a portable hand hangboard
+   cabled to a weight stack — same sub-maximal intent, but load is the actual attached weight,
+   not a % of bodyweight (there's no bodyweight component to this device at all). The study
+   found frequent low-intensity
+   loading builds finger strength as effectively as Max Hangs, and that combining the two is
+   additive. Emil's original session (the one the study's Abrahangs group trained) was just
+   3x10s half crimp + 3x10s three-finger drag — 60s of actual loading. Meant to be done twice
+   a day, 6+ hours apart, every day regardless of climbing (sub-maximal enough that it doesn't
+   need the rest-day spacing Max Hangs does), which is why it's tracked here the same way
+   mobility is — parallel to the plan, not gated by phase or slot. Each hold is tagged with
+   which grip it belongs to (`grip: "hc"` or `"drag"`) so weight can be tracked/progressed
+   separately per grip — half crimp and three-finger drag don't share the same max capacity. */
+const ABRAHANGS_ROUTINE = [
+  {key:"hc1", name:"Half crimp — hold 1", dur:"10s", grip:"hc"},
+  {key:"hc2", name:"Half crimp — hold 2", dur:"10s", grip:"hc"},
+  {key:"hc3", name:"Half crimp — hold 3", dur:"10s", grip:"hc"},
+  {key:"drag1", name:"3-finger drag — hold 1", dur:"10s", grip:"drag"},
+  {key:"drag2", name:"3-finger drag — hold 2", dur:"10s", grip:"drag"},
+  {key:"drag3", name:"3-finger drag — hold 3", dur:"10s", grip:"drag"},
+];
 const MILESTONES = [10,25,50,75,100,150,200]; // session-count round numbers worth a one-time celebration
 const SCHEMA_VERSION = 1; // bump + add a migration step in load() when the stored shape changes
 const DEFAULTS = {
@@ -320,37 +341,29 @@ const LIFT_FULL_TEXT = "6 lifts. Pull-up/squat/OHP: warm up 55/70/85%, then 2 se
 /* {{grade}} is resolved at render time from your logged send history (see gradeRangeFor). */
 /* Climbing is fixed at 3x/week (the athlete's own real schedule) with lift on whatever
    other day fits — the app stays session-driven/day-agnostic (no weekday text in labels).
-   Max-hang-protocol sessions (true max-effort or lighter "maintenance" load — same protocol
-   field either way) and max-weight pull-up testing are NOT plan slots at all: the athlete
-   tests both on their own on weekends and logs them via Benchmarks (Progress tab), so the
-   app doesn't prescribe them as a workout to pick. Repeater-protocol hang sessions remain,
-   since they're a different, submax stimulus (tendon durability, not a max-strength test) —
-   they can be done at home or the gym, kept adjacent to a climb slot as an optional
-   same-session pairing. Lift is always its own standalone session — never framed as "same
-   visit" as a climb. Every phase's slot order keeps finger-intensive slots (any hang, or a
-   climb targeting RPE≥9) non-adjacent — see TRAINING_PLAN.md "Finger recovery spacing" for
-   the full audit and sources (Schweizer & Hudek 2011; Mundry, Steinmetz, Atkinson,
-   Schilling, Schöffl, Saul 2021). */
+   Hangboard is NOT a plan slot at all: it's all Abrahangs now (a daily, sub-maximal habit,
+   not a max-strength test), which runs parallel to the plan the same way Mobility does —
+   logged from its own Plan-tab card, doesn't advance the slot pointer — rather than rotating
+   through the climb/lift slots below. Max-weight pull-up testing is likewise self-managed via
+   Benchmarks (Progress tab), not a plan slot. Lift is always its own standalone session —
+   never framed as "same visit" as a climb. Every phase's slot order keeps finger-intensive
+   slots (a climb targeting RPE≥9, back-to-back) non-adjacent — see TRAINING_PLAN.md "Finger
+   recovery spacing" for the full audit and sources (Schweizer & Hudek 2011; Mundry, Steinmetz,
+   Atkinson, Schilling, Schöffl, Saul 2021). */
 const WEEKLY_TEMPLATES = {
   recon:[
     {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Volume: high. Angle: easy-moderate. Constraint: footwork precision, not difficulty. No limit attempts."},
-    {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
-      full:"Edge: 20mm. Load: {{load}}. Protocol: 7s hang / 3s rest × 6 reps, 3min rest between sets, 2 sets/grip type (open + half-crimp). Repeaters work at home or the gym — pair this with the climb above same-session, or do it on its own."},
     {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
       full:"Same as the other volume day. Grade: {{grade}}. Mileage + footwork, not difficulty."},
     {type:"climb",label:"Climb — ARC / easy (active recovery)", detail:"{{grade}} · 20–30min continuous", targetRpe:4, gradeRole:"arc",
       full:"Grade: {{grade}}. Duration: 20-30min continuous movement, minimal rest. No pump."},
-    {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"20mm · {{load}} · 7s/3s×6",protocol:"repeater", targetRpe:6,
-      full:"2nd repeater session this week. Same protocol as the other one. Edge: 20mm. Load: {{load}}. Home or gym — pair with the climb above, or do it separately."},
     {type:"lift", label:"Lift", detail:"6 lifts · Greyskull-style", targetRpe:6,
       full:LIFT_FULL_TEXT+" Own session — not paired with a climbing day."},
   ],
   strength:[
     {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · footwork drills", targetRpe:6, gradeRole:"volume",
       full:"Grade: {{grade}}. Volume: moderate. Include 2-3 footwork-drill problems. Warm up before harder attempts."},
-    {type:"hang", label:"Hangboard — repeaters (endurance)", detail:"{{load}} · repeaters + core",protocol:"repeater", targetRpe:6,
-      full:"Load: {{load}}. Repeaters + core. Intensity: moderate — maintenance, not primary stimulus. Home or gym — can pair with the climb above same-session, or do it on its own."},
     {type:"climb",label:"Climb — volume / ARC (mileage)", targetRpe:5, gradeRole:"volume",
       full:"Grade: {{grade}}. Active recovery / mileage."},
     {type:"climb",label:"Climb — project/limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
@@ -450,7 +463,9 @@ function resolveSlotText(slot){
    you arrived there via the Plan tab's "Log this session" button. */
 function findMatchingSlot(f){
   const slots=currentProgress().slots;
-  if(f.type==="hang") return slots.find(s=>s.type==="hang"&&s.protocol===f.protocol) || slots.find(s=>s.type==="hang");
+  // Abrahangs is a daily habit, not one of the plan's prescribed repeater/max hang slots — no
+  // match, same as mobility, so it never inherits a plan slot's info card or intensity target.
+  if(f.type==="hang") return f.protocol==="abrahangs" ? null : (slots.find(s=>s.type==="hang"&&s.protocol===f.protocol) || slots.find(s=>s.type==="hang"));
   if(f.type==="climb") return slots.find(s=>s.type==="climb"&&s.gradeRole===(f.gradeRole||"volume")) || slots.find(s=>s.type==="climb");
   if(f.type==="lift") return slots.find(s=>s.type==="lift");
   return null;
@@ -477,6 +492,22 @@ function suggestHangLoad(protocol,grip){
   }
   const last=hist[0];
   const base=last.hang.addedLb??0;
+  if(cur.isDeload) return Math.round(base*0.5);
+  if(last.finger==="pain"||last.finger==="tweaky") return base;
+  if(last.rpe!=null && last.rpe<=7) return base+5;
+  return base;
+}
+/* Same autoregulation as suggestHangLoad, but per Abrahangs grip — half crimp and 3-finger
+   drag have different max capacities, so each grip's added weight progresses independently
+   off its own field (hcLb/dragLb) rather than sharing suggestHangLoad's single addedLb/grip
+   pairing (which means something different there — half-crimp vs open-hand). */
+function suggestAbraLoad(gripKey){
+  const field = gripKey==="hc" ? "hcLb" : "dragLb";
+  const hist=realSessions().filter(s=>s.type==="hang"&&s.hang?.protocol==="abrahangs"&&s.hang[field]!=null).sort((a,b)=>a.date<b.date?1:-1);
+  const cur=currentProgress();
+  if(!hist.length) return 0;
+  const last=hist[0];
+  const base=last.hang[field]??0;
   if(cur.isDeload) return Math.round(base*0.5);
   if(last.finger==="pain"||last.finger==="tweaky") return base;
   if(last.rpe!=null && last.rpe<=7) return base+5;
@@ -573,7 +604,10 @@ function advanceProgress(){
   store.progress={phaseIdx,weekInPhase,slot};
 }
 
-const FINGER_INTENSITY_TYPES = s => s.type==="hang" || (s.type==="climb" && (s.rpe>=9));
+// Abrahangs is explicitly sub-maximal (feet on the ground, ~70-80% effort) — the whole point
+// of the protocol is that it's gentle enough to skip the rest-day spacing Max Hangs needs, so
+// it's excluded here even though it's still a "hang" session type.
+const FINGER_INTENSITY_TYPES = s => (s.type==="hang" && s.hang?.protocol!=="abrahangs") || (s.type==="climb" && (s.rpe>=9));
 function computeGuardrails(store){
   const out=[];
   const sessions=store.sessions.filter(s=>!s.seed).sort((a,b)=>a.date<b.date?1:-1);
@@ -800,25 +834,7 @@ function stalledGradeCheck(){
   }
   return `Cycle back to a Strength Base block (6-8 session-weeks) — V${hardestEver} has been your ceiling for 3 sessions despite ${triesAtProject} tries at V${projectGrade} with no send.`;
 }
-/* ---- momentum/consistency: streaks, heatmap, and trend series (all derived, nothing persisted) ---- */
-/* Day-level streak, driven by the same date set the consistency heatmap renders from — any
-   logged session (climb/hang/lift/mobility) counts a day as "on". */
-function trainingStreak(){
-  const daysWithSessions=new Set(realSessions().map(s=>s.date));
-  if(!daysWithSessions.size) return {current:0, best:0};
-  // Grace for today: don't drop to 0 just because nothing's logged yet today — only count
-  // broken once a full day has passed with nothing logged.
-  const todayLogged=daysWithSessions.has(todayStr());
-  let current=0;
-  for(let i=todayLogged?0:1; daysWithSessions.has(dateFromDaysAgo(i)); i++) current++;
-  const firstDate=[...daysWithSessions].sort()[0];
-  const span=Math.max(0,dayDiff(todayStr(),firstDate));
-  let best=0, run=0;
-  for(let i=span;i>=0;i--){
-    if(daysWithSessions.has(dateFromDaysAgo(i))){ run++; best=Math.max(best,run); } else run=0;
-  }
-  return {current, best:Math.max(best,current)};
-}
+/* ---- momentum/consistency: heatmap and trend series (all derived, nothing persisted) ---- */
 const TYPE_COLORS={climb:"var(--accent)",hang:"var(--tweaky)",lift:"var(--good)",mobility:"var(--mobility)"};
 function heatmapData(weeks=18){
   const days=weeks*7;
@@ -902,7 +918,8 @@ const I = {
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>',
   chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="m9 18 6-6-6-6"/></svg>',
   info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
-  flame:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
+  gauge:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>',
+  timer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2h4"/><path d="M12 14v-4"/><circle cx="12" cy="14" r="8"/></svg>',
 };
 
 /* ============================ helpers ============================ */
@@ -931,7 +948,12 @@ function detailOf(s){
     return sendsStr+(attTotal?`  · +${attTotal} attempt${attTotal===1?"":"s"}`:"");
   }
   if(s.type==="hang"){
-    const h=s.hang||{}; const load=h.addedLb>0?`+${h.addedLb}lb`:h.addedLb<0?`${h.addedLb}lb`:"BW";
+    const h=s.hang||{};
+    if(h.protocol==="abrahangs"){
+      const fmt=v=>v>0?`${v}lb`:"no weight";
+      return `Hangboard · ${(h.done||[]).length}/${ABRAHANGS_ROUTINE.length} holds · HC ${fmt(h.hcLb??0)} / Drag ${fmt(h.dragLb??0)}`;
+    }
+    const load=h.addedLb>0?`+${h.addedLb}lb`:h.addedLb<0?`${h.addedLb}lb`:"BW";
     const grip=h.grip==="open"?"open":"half-crimp";
     return `${h.protocol==="max"?"Max hang":"Repeaters"} · ${grip} · ${h.edge}mm · ${load} · ${h.sets}×`;
   }
@@ -959,7 +981,7 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false, loadError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, benchHistoryOpen:false, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,trends:false,benchmarks:false,recovery:false,strength:false,data:false}, celebrate:null, timer:null, restTimer:null, logStartedAt:null, selectedSlot:null, calMonth:{year:new Date().getFullYear(), month:new Date().getMonth()}, calSelectedDate:todayStr() };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,trends:false,recovery:false,strength:false,data:false}, celebrate:null, timer:null, restTimer:null, logStartedAt:null, selectedSlot:null, calMonth:{year:new Date().getFullYear(), month:new Date().getMonth()}, calSelectedDate:todayStr() };
 let mobilityTimerHandle=null;
 function clearMobilityTimerHandle(){ if(mobilityTimerHandle){ clearInterval(mobilityTimerHandle); mobilityTimerHandle=null; } }
 function resetMobilityTimer(){ clearMobilityTimerHandle(); ui.timer=null; }
@@ -1024,13 +1046,16 @@ function setProgressUndo(){
 }
 
 function blankForm(){
-  return { type:"climb", date:todayStr(), grades:[], attempts:{}, protocol:"repeater", edge:20, grip:"half",
+  return { type:"climb", date:todayStr(), grades:[], attempts:{}, protocol:"abrahangs", edge:20, grip:"half",
     addedLb:0, sets:5, entries:blankLiftEntries(), finger:"good", effort:null, notes:"",
-    sleep:null, soreness:null, gradeRole:null, mobilityDone:[] };
+    sleep:null, soreness:null, gradeRole:null, mobilityDone:[], abraDone:[], abraHcLb:0, abraDragLb:0, bwVal:"", hangVal:"", pullVal:"" };
 }
 /* Applies data-driven suggestions to a form — only safe to call once `store` is loaded. */
 function applySuggestions(f){
-  if(f.type==="hang") f.addedLb=suggestHangLoad(f.protocol,f.grip);
+  if(f.type==="hang"){
+    if(f.protocol==="abrahangs"){ f.abraHcLb=suggestAbraLoad("hc"); f.abraDragLb=suggestAbraLoad("drag"); }
+    else f.addedLb=suggestHangLoad(f.protocol,f.grip);
+  }
   if(f.type==="lift"){
     LIFT_DAY.forEach(L=>{
       const sug=suggestLiftWeight(L.key);
@@ -1141,14 +1166,8 @@ function renderPlan(){
   const lastSession=realSessions().sort((a,b)=>a.date<b.date?1:-1)[0];
   const daysSince = lastSession ? dayDiff(todayStr(),lastSession.date) : null;
   const lastText = daysSince==null ? "No sessions logged yet" :
-    daysSince<=0 ? "Last session: today" : daysSince===1 ? "Last session: 1 day ago" :
-    daysSince>10 ? `Welcome back — it's been ${daysSince} days. Pick up right where you left off.` :
-    `Last session: ${daysSince} days ago`;
-  const streak=trainingStreak();
-  const streakText = streak.current>0
-    ? `${streak.current}-day streak${streak.best>streak.current?` <small>· best ${streak.best}</small>`:""}`
-    : `Log a session today to start a streak`;
-
+    daysSince<=0 ? "Last session: today" :
+    `Last session: ${daysSince} day${daysSince===1?"":"s"} ago`;
   const typeIcon={climb:I.climb,hang:I.hang,lift:I.lift,mobility:I.mobility};
   const insight=sessionInsight(displaySlot);
   const mobilityDoneToday=realSessions().some(s=>s.type==="mobility"&&s.date===todayStr());
@@ -1159,24 +1178,37 @@ function renderPlan(){
       <span class="hicon" style="color:var(--mobility)">${I.mobility}</span>
       <span style="flex:1">
         <div style="font-weight:800;font-size:14px;color:var(--ink)">${mobilityDoneToday?"Mobility done today":"10-min daily mobility"}</div>
-        ${mobilityDoneToday?"":`<div class="hint" style="margin:2px 0 0">Not logged yet — tap to start</div>`}
       </span>
       <span style="color:${mobilityDoneToday?"var(--mobility)":"var(--faint)"};display:flex">${mobilityDoneToday?I.check:I.chev}</span>
+    </div>
+  </div>`;
+
+  // Abrahangs is meant to run twice a day, 6+ hrs apart — tracked as a count against that
+  // target rather than mobility's plain done/not-done, since "1/2" is meaningfully different
+  // from "2/2" here (the study's protocol, not an arbitrary choice).
+  const abraToday=realSessions().filter(s=>s.type==="hang"&&s.hang?.protocol==="abrahangs"&&s.date===todayStr()).length;
+  const abraDoneToday=abraToday>=2;
+  const abraRow=`<div class="field">
+    <div class="liftrow" id="abraCard" style="cursor:pointer;
+      border:1px solid ${abraDoneToday?"var(--mobility)":abraToday>0?"var(--accent)":"var(--line)"};
+      background:${abraDoneToday?"rgba(139,127,209,.10)":"var(--panel)"}">
+      <span class="hicon" style="color:var(--mobility)">${I.timer}</span>
+      <span style="flex:1">
+        <div style="font-weight:800;font-size:14px;color:var(--ink)">${abraDoneToday?"Hangboard done today":`Hangboard — ${abraToday}/2 today`}</div>
+      </span>
+      <span style="color:${abraDoneToday?"var(--mobility)":"var(--faint)"};display:flex">${abraDoneToday?I.check:I.chev}</span>
     </div>
   </div>`;
 
   // Very lightweight — no numeric calorie entry, just a daily yes/no/maybe against a rough
   // bodyweight-based TDEE reference (not precise, just a gut-check anchor). Backfilling a
   // past day's status lives on the History tab (calorieChips is shared with it).
-  const bw=store.settings.bodyweight;
-  const tdee=bw?Math.round(bw*16):null;
   const caloriesRow=`<div class="field">
     <div class="liftrow" style="flex-direction:column;align-items:stretch;gap:10px">
       <div style="display:flex;align-items:center;gap:10px">
         <span class="hicon" style="color:var(--accent)">${I.utensils}</span>
         <div style="flex:1">
           <div style="font-weight:800;font-size:14px;color:var(--ink)">Met calories today?</div>
-          <div class="hint" style="margin:2px 0 0">${tdee?`Rough guide: ~${tdee} kcal/day (bodyweight × 16) — not precise, just a reference point.`:"Set bodyweight in Progress → Benchmarks for a rough daily guide."}</div>
         </div>
       </div>
       ${calorieChips(todayStr())}
@@ -1205,7 +1237,6 @@ function renderPlan(){
             <span style="flex:1;font-size:13px;color:${isSelected?"var(--ink)":"var(--faint)"}">${esc(s.label)}</span>
           </div>`;
         }).join("")}
-        <div class="hint" style="margin-top:10px">Pick whatever you're doing — this doesn't change your plan position.</div>
       </div>
     </div>`;
   const upNextCard = complete ? `<div class="field">
@@ -1227,7 +1258,7 @@ function renderPlan(){
     </div>`;
 
   const phaseInfoOpen=ui.phaseInfoOpen;
-  const phaseCard=`<div class="cur">
+  const phaseCard=`<div class="cur" style="padding:${phaseInfoOpen?"18px 16px":"12px 16px"}">
       <div id="phaseInfoTap" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer">
         <span class="lab" style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--sub)">${phase.name} · Week ${weekInPhase}/${phase.weeks}${held?" (extended)":""}</span>
         <span style="color:var(--faint);transform:rotate(${phaseInfoOpen?90:0}deg);transition:transform .15s">${I.chev}</span>
@@ -1257,19 +1288,20 @@ function renderPlan(){
               <button class="btn2" data-planpos="close" style="margin:0">Done</button>
             </div>`
           : `<span data-planpos="toggle" style="text-decoration:underline;cursor:pointer;font-size:12px;color:var(--faint)">Adjust phase/week</span>`}
+          <div class="hint">${esc(lastText)}</div>
+          ${ui.progressUndo?`<span id="undoProgress" style="text-decoration:underline;cursor:pointer;color:var(--accent);font-size:12px">Undo last change</span>`:""}
         </div>`:""}
-      <div class="hint" style="margin-top:10px">${esc(lastText)}</div>
-      <div class="streak">${I.flame}<span class="txt">${streakText}</span></div>
-      ${ui.progressUndo?`<div class="hint" style="margin-top:8px"><span id="undoProgress" style="text-decoration:underline;cursor:pointer;color:var(--accent)">Undo last change</span></div>`:""}
     </div>`;
   return errBanner()+`
+    ${phaseCard}
     ${isDeload?`<div class="field"><div style="background:#22303A;color:var(--accent);border-radius:12px;padding:12px 14px;font-size:13px;">Deload week: halve hangboard/lift volume.</div></div>`:""}
     ${upNextCard}
     ${mobilityRow}
+    ${abraRow}
     ${caloriesRow}
+    ${renderBenchmarkVsGrade()}
     ${renderHeatmap()}
-    ${warnBlock}
-    ${phaseCard}`;
+    ${warnBlock}`;
 }
 
 /* "How long have I been at this" clock — starts the moment you land on a fresh (non-edit)
@@ -1364,12 +1396,17 @@ function renderLog(){
       <div class="gcombogrid">${range.map(g=>gradeCard(g)).join("")}</div>
       <div class="hint" style="margin-top:8px"><span id="gradeExpandToggle" style="text-decoration:underline;cursor:pointer">${ui.gradeExpanded?"Show fewer grades":`Show all grades (V0–V${maxG})`}</span></div>
       </div>`;
+  } else if(f.type==="hang" && f.protocol==="abrahangs"){
+    const done=f.abraDone||[];
+    body=`<div class="hint" style="margin:0 0 12px">Portable hand hangboard cabled to a weight stack, one hand at a time — no bodyweight involved, just the attached weight pulling on your fingers. Sub-maximal load. In order: half crimp first, then 3-finger drag. Tap a set to time the hold and mark it done, same as Lift.</div>`
+      + abraGripCard("hc","Half crimp",f.abraHcLb,1,done)
+      + abraGripCard("drag","3-finger drag",f.abraDragLb,2,done);
   } else if(f.type==="hang"){
+    // Legacy protocols (Repeaters/Max hang) — no longer offered for new entries (blankForm
+    // defaults to Abrahangs), kept only so an old logged session of either can still be
+    // viewed/edited correctly rather than silently reinterpreted as something it wasn't.
     const sugLb=suggestHangLoad(f.protocol,f.grip);
-    body=`<div class="field"><div class="flabel">Hangboard</div>
-      <div class="seg" style="margin-bottom:10px" data-seg="protocol">
-        <button data-val="repeater" class="${f.protocol==="repeater"?"on":""}">Repeaters</button>
-        <button data-val="max" class="${f.protocol==="max"?"on":""}">Max hang</button></div>
+    body=`<div class="field"><div class="flabel">Hangboard — ${f.protocol==="max"?"Max hang":"Repeaters"} (legacy)</div>
       <div class="seg" style="margin-bottom:16px" data-seg="grip">
         <button data-val="half" class="${f.grip==="half"?"on":""}">Half-crimp</button>
         <button data-val="open" class="${f.grip==="open"?"on":""}">Open hand</button></div>
@@ -1381,6 +1418,22 @@ function renderLog(){
       </div></div>`;
   } else if(f.type==="lift"){
     body=LIFT_DAY.map((L,li)=>liftBlock(L,f.entries[L.key]||[],li+1)).join("");
+  } else if(f.type==="benchmarks"){
+    const bw=store.settings.bodyweight, hang=latestBenchmark("hang"), pull=latestBenchmark("pull");
+    const ratio=(v)=> bw&&v!=null ? Math.round((v/bw)*100)+"%" : "—";
+    body=`<div class="field"><div class="flabel">Benchmarks</div>
+      <div class="stack">
+        <div class="stepper"><span class="lab">Bodyweight (lb)</span>
+          <div class="ctl">${sparkline(benchTrend("bodyweight"))}<input class="numin" data-bench="bw" style="width:70px" inputmode="decimal" value="${f.bwVal}" placeholder="${bw??"lb"}"></div></div>
+        <div class="stepper"><span class="lab">Max hang add (20mm,10s)</span>
+          <div class="ctl">${sparkline(benchTrend("hang"))}<input class="numin" data-bench="hang" style="width:70px" inputmode="decimal"
+            value="${f.hangVal}" placeholder="${hang?hang.value:"lb"}"><span class="val" style="min-width:40px">${ratio(hang?.value)}</span></div></div>
+        <div class="stepper"><span class="lab">Max weighted pull-up</span>
+          <div class="ctl">${sparkline(benchTrend("pull"))}<input class="numin" data-bench="pull" style="width:70px" inputmode="decimal"
+            value="${f.pullVal}" placeholder="${pull?pull.value:"lb"}"><span class="val" style="min-width:40px">${ratio(pull?.value)}</span></div></div>
+      </div>
+      <div class="hint" style="margin-top:8px">Leave a field blank to skip it — only the ones you fill in get logged. Targets (%BW): hang V3-4 ${BENCH_TARGETS.hang[0][1]} · V6 ${BENCH_TARGETS.hang[1][1]} · V8 ${BENCH_TARGETS.hang[2][1]}. Pull-up V3-4 ${BENCH_TARGETS.pull[0][1]} · V6 ${BENCH_TARGETS.pull[1][1]} · V8 ${BENCH_TARGETS.pull[2][1]}.</div>
+      </div>`;
   } else {
     const done=f.mobilityDone||[];
     body=`<div class="field"><div class="flabel">10-min daily mobility</div>
@@ -1407,7 +1460,7 @@ function renderLog(){
       </div></div>`;
   }
 
-  const finger = `<div class="field"><div class="flabel">Finger status${f.type==="lift"||f.type==="mobility"?" (optional)":""}</div>
+  const finger = `<div class="field"><div class="flabel">Finger status${f.type==="lift"||f.type==="mobility"||(f.type==="hang"&&f.protocol==="abrahangs")?" (optional)":""}</div>
     <div class="row3">${Object.entries(FINGER).map(([k,x])=>{
       const on=f.finger===k;
       return `<button class="chip" data-finger="${k}"
@@ -1454,17 +1507,18 @@ function renderLog(){
     ${needsGrade&&!ui.flash?`<div class="hint" style="text-align:center;margin-top:8px">Tap a grade above to log a send or attempt</div>`:""}
     ${editing?`<div class="hint" style="text-align:center;margin-top:10px"><span id="cancelEdit" style="text-decoration:underline;cursor:pointer">Cancel edit</span></div>`:""}`;
 
+  const isBench=f.type==="benchmarks";
   const matchSlot=findMatchingSlot(f);
   // Trigger pre-session, from the plan's target intensity for this slot — not only post-hoc
   // once effort/RPE gets logged after the fact, which is backwards for an injury-prevention prompt.
-  const highIntensity = (matchSlot?.targetRpe??0)>=8 || (f.type==="hang"&&f.protocol==="max") || f.effort==="hard" || f.effort==="max";
+  const highIntensity = !isBench && ((matchSlot?.targetRpe??0)>=8 || (f.type==="hang"&&f.protocol==="max") || f.effort==="hard" || f.effort==="max");
   const warmup = highIntensity ? `<div class="field">
       <div style="background:#22303A;border-radius:12px;padding:12px 14px;">
         <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">Warm up first</div>
         <div class="hint" style="line-height:1.5">10-15min easy climbing. Load ramp: 50%→70%→90% before your first hard attempt.</div>
       </div></div>` : "";
 
-  const info=matchSlot?resolveSlotText(matchSlot):null;
+  const info=(!isBench && matchSlot)?resolveSlotText(matchSlot):null;
   const infoCard=info?`<div class="field"><div style="background:var(--panel2);border-radius:12px;padding:12px 14px;">
       <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">${esc(info.label)} — ${esc(currentProgress().phase.name)}</div>
       <div class="hint" style="line-height:1.5">${esc(info.full||info.detail||"")}</div>
@@ -1478,12 +1532,13 @@ function renderLog(){
       <button data-val="hang" class="${f.type==="hang"?"on":""}">${I.hang}Hang</button>
       <button data-val="lift" class="${f.type==="lift"?"on":""}">${I.lift}Lift</button>
       <button data-val="mobility" class="${f.type==="mobility"?"on":""}">${I.mobility}Mobility</button>
+      <button data-val="benchmarks" class="${isBench?"on":""}">${I.gauge}Bench</button>
     </div>
     <div class="daterow">
       <input type="date" id="date" value="${f.date}">
     </div>
     <div class="rule"></div>
-    ${infoCard}${warmup}${body}${finger}${moreToggle}${moreBody}${saveBtn}`;
+    ${infoCard}${warmup}${body}${isBench?"":finger}${isBench?"":moreToggle}${isBench?"":moreBody}${saveBtn}`;
 }
 
 function stepper(lab,key,val,suf){
@@ -1556,6 +1611,53 @@ function liftSetRow(L,i,r,prevRow,cols){
     <span class="gv">${targetText}</span>
     ${inputs}
     <span class="gv" style="color:${done?"var(--mobility)":"var(--faint)"}">${done?I.check:"–"}</span>
+  </div>`;
+}
+
+/* Hangboard (Abrahangs) — same .hcard/.liftgrid pattern as liftBlock/liftSetRow above: one
+   numbered card per grip (half crimp, 3-finger drag), a column-header table, and a chip row
+   per set that's the tap target for marking it done, exactly like a lift exercise's sets. The
+   weight quick-stepper sits in the card header (in place of liftBlock's rest-timer button —
+   there's no exercise-level rest to time here, each set's own hold/rest is on the row). */
+// Pulled weight, not bodyweight-relative — this is a handheld portaboard cabled to a weight
+// stack/plates, not an overhead hangboard, so there's no "BW" baseline to express load
+// against. loadText() (built for hang/lift's +/-lb-off-bodyweight framing) doesn't apply here.
+function abraLoadText(lb){ return lb>0?`${lb}lb`:"no weight"; }
+function abraGripCard(gripKey,label,weight,num,done){
+  const items=ABRAHANGS_ROUTINE.filter(m=>m.grip===gripKey);
+  const sug=suggestAbraLoad(gripKey);
+  const stepKey=gripKey==="hc"?"abraHcLb":"abraDragLb";
+  const cols="40px 1fr 52px 22px";
+  const header=`<span class="gh">Set</span><span class="gh">Hold</span><span class="gh">Timer</span><span class="gh"></span>`;
+  return `<div class="hcard">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:2px">
+      <span style="display:flex;align-items:center;gap:8px">
+        <span style="width:22px;height:22px;border-radius:6px;background:var(--panel2);color:var(--faint);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${num}</span>
+        <span style="font-weight:800;font-size:14px;color:var(--ink)">${esc(label)}</span>
+      </span>
+      <span style="display:flex;align-items:center;gap:6px">
+        <input class="numin" inputmode="decimal" data-abraweight="${stepKey}" style="width:56px" value="${weight||""}" placeholder="lb">
+        <span class="sub">lb</span>
+      </span>
+    </div>
+    <div class="hint" style="margin:0 0 10px 30px">${items.length} sets × 10s hold, ~50s rest between${(Number(weight)||0)!==sug?` · suggested <strong style="color:var(--accent)">${abraLoadText(sug)}</strong>`:""}</div>
+    <div class="liftgrid" style="grid-template-columns:${cols};padding:0 12px;margin-bottom:4px">${header}</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${items.map((m,i)=>abraSetRow(m,i,cols,done)).join("")}
+    </div></div>`;
+}
+function abraSetRow(m,i,cols,done){
+  const on=done.includes(m.key);
+  const totalSec=parseInt(m.dur,10);
+  const t=ui.timer, isActive=t&&t.key===m.key;
+  const running=isActive&&t.running;
+  const remaining=isActive?t.remaining:totalSec;
+  return `<div class="chip liftgrid" data-abra="${m.key}" style="display:grid;grid-template-columns:${cols};cursor:pointer;padding:10px 12px;
+      border-color:${on?"var(--mobility)":"var(--line)"};background:${on?"rgba(139,127,209,.13)":"var(--panel)"}">
+    <span class="gv" style="font-weight:700">${i+1}</span>
+    <span class="gv">${isActive?`${remaining}s left`:`${m.dur} hold`}</span>
+    <button class="timerbtn${running?" on":""}" data-mobtimer="${m.key}" data-dur="${totalSec}" style="justify-self:center">${running?I.pause:I.play}</button>
+    <span class="gv" style="color:${on?"var(--mobility)":"var(--faint)"}">${on?I.check:"–"}</span>
   </div>`;
 }
 
@@ -1836,10 +1938,8 @@ function renderProgress(){
     </div>
     ${renderGradeChart()}
     ${renderGradePyramid()}
-    ${renderBenchmarkVsGrade()}
     ${progSection("targets","target & comfortable grade",targetsBody)}
     ${progSection("trends","training load & effort trends",renderTrainingTrends())}
-    ${progSection("benchmarks","benchmarks",renderBenchmarks())}
     ${progSection("recovery","recovery signals",renderRecoveryTrends()||`<div class="hint">Log finger status / sleep / soreness on a few sessions to see trends here.</div>`)}
     ${progSection("strength","strength trends",renderStrengthTrends()||`<div class="hint">Log a few hang or lift sessions to see trends here.</div>`)}
     ${progSection("data","data management (export, backup, restore, raw edit)",dataBody)}`;
@@ -2070,7 +2170,7 @@ function benchmarkGradeEstimate(pct,anchors){
 function benchTrend(metric){
   return realBenchmarks().filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?-1:1).map(b=>b.value);
 }
-/* Visualizes the same %BW-vs-grade norms renderBenchmarks() shows as static text, as two
+/* Visualizes the %BW-vs-grade norms (BENCH_TARGETS, logged on the Log tab) as two
    gauges you can actually read your position on, with your comfortable grade marked alongside
    so a gap between "what your strength predicts" and "what you've actually sent" is visible —
    the two independent grade predictors this app's own literature review (Saul et al. 2019)
@@ -2083,7 +2183,7 @@ function renderBenchmarkVsGrade(){
   const anyBench=metric=>(store.benchmarks||[]).filter(b=>b.metric===metric).sort((a,b)=>a.date<b.date?1:-1)[0]||null;
   const hang=anyBench("hang"), pull=anyBench("pull");
   if(!bw || (!hang && !pull)) return `<div class="field"><div class="flabel">Strength vs. grade</div>
-    <div class="stack"><div class="hint">Log bodyweight and a max hang or pull-up benchmark (below, in Benchmarks) to see this.</div></div></div>`;
+    <div class="stack"><div class="hint">Log bodyweight and a hang or pull-up benchmark (Log tab) to see this.</div></div></div>`;
   const cg=effectiveComfortableGrade();
   const w=300, padL=8, padR=8, trackH=10, gMin=2, gMax=10, blockH=44;
   const trackW=w-padL-padR;
@@ -2109,44 +2209,8 @@ function renderBenchmarkVsGrade(){
   return `<div class="field"><div class="flabel">Strength vs. grade</div>
     <div class="stack">
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">${rows}</svg>
-      <div class="hint">Dashed line = your comfortable grade (V${cg}). A gap between it and a strength marker points at which one's the current limiter.</div>
+      <div class="hint">Dashed line = comfortable grade (V${cg}).</div>
     </div></div>`;
-}
-function renderBenchmarks(){
-  const bw=store.settings.bodyweight;
-  const hang=latestBenchmark("hang"), pull=latestBenchmark("pull");
-  const ratio=(v)=> bw&&v!=null ? Math.round((v/bw)*100)+"%" : "—";
-  return `<div class="stack" style="margin-bottom:10px">
-      <div class="stepper"><span class="lab">Bodyweight (lb)</span>
-        <div class="ctl">${sparkline(benchTrend("bodyweight"))}<input class="numin" id="bw" style="width:70px" inputmode="decimal" value="${bw??""}" placeholder="lb"></div></div>
-      <div class="stepper"><span class="lab">Max hang add (20mm,10s)</span>
-        <div class="ctl">${sparkline(benchTrend("hang"))}<input class="numin" id="benchHang" style="width:70px" inputmode="decimal"
-          placeholder="lb" value="${hang?hang.value:""}"><span class="val" style="min-width:40px">${ratio(hang?.value)}</span></div></div>
-      <div class="stepper"><span class="lab">Max weighted pull-up</span>
-        <div class="ctl">${sparkline(benchTrend("pull"))}<input class="numin" id="benchPull" style="width:70px" inputmode="decimal"
-          placeholder="lb" value="${pull?pull.value:""}"><span class="val" style="min-width:40px">${ratio(pull?.value)}</span></div></div>
-      <button class="btn2" id="logBench" style="margin:4px 0 0">Log today's numbers</button>
-    </div>
-    <div class="hint">Targets (%BW): hang V3-4 ${BENCH_TARGETS.hang[0][1]} · V6 ${BENCH_TARGETS.hang[1][1]} · V8 ${BENCH_TARGETS.hang[2][1]}. Pull-up V3-4 ${BENCH_TARGETS.pull[0][1]} · V6 ${BENCH_TARGETS.pull[1][1]} · V8 ${BENCH_TARGETS.pull[2][1]}.</div>
-    ${(store.benchmarks||[]).length?`<button class="btn2" id="benchHistToggle" style="margin:10px 0 0">${ui.benchHistoryOpen?"Hide history":"Show history"}</button>`:""}
-    ${ui.benchHistoryOpen?renderBenchmarkList():""}`;
-}
-function renderBenchmarkList(){
-  const list=[...(store.benchmarks||[])].sort((a,b)=>a.date<b.date?1:-1).slice(0,10);
-  if(!list.length) return "";
-  const metricLabel={bodyweight:"Bodyweight",hang:"Max hang",pull:"Max pull-up"};
-  return `<div class="hint" style="margin:12px 0 6px">Recent entries</div>
-    <div class="stack" style="gap:0;padding:4px 14px">
-      ${list.map((b,i)=>{
-        const border=i<list.length-1?"border-bottom:1px solid var(--line);":"";
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${border}">
-          <span style="flex:1;font-size:13px;color:var(--ink)">${metricLabel[b.metric]||b.metric}: ${b.value}lb <span style="color:var(--faint)">· ${prettyDate(b.date)}</span></span>
-          ${ui.confirmDel===b.id
-            ? `<button class="del confirm" data-delbench="${b.id}">${I.trash}Confirm?</button>`
-            : `<button class="del" data-delbench="${b.id}">${I.trash}Delete</button>`}
-        </div>`;
-      }).join("")}
-    </div>`;
 }
 function renderRecoveryTrends(){
   const withFinger=realSessions().filter(s=>s.finger).sort((a,b)=>a.date<b.date?-1:1).slice(-20);
@@ -2262,10 +2326,11 @@ function stat(lab,v,color,sub){
 function valid(){
   const f=ui.form;
   if(f.type==="climb") return (f.grades.length>0 || Object.values(f.attempts||{}).some(v=>v>0)) && !!f.finger;
-  if(f.type==="hang") return !!f.finger;
+  if(f.type==="hang") return f.protocol==="abrahangs" ? (f.abraDone||[]).length>0 : !!f.finger;
   if(f.type==="lift") return LIFT_DAY.some(L=>(f.entries[L.key]||[]).some(r=>
     L.scheme==="hold" ? (r.reps??"")!=="" : (r.weight??"")!==""));
   if(f.type==="mobility") return (f.mobilityDone||[]).length>0;
+  if(f.type==="benchmarks") return f.bwVal!=="" || f.hangVal!=="" || f.pullVal!=="";
   return false;
 }
 function bumpGrade(g,d){
@@ -2287,6 +2352,7 @@ function loadSessionIntoForm(sess){
   if(sess.type==="hang"){
     const h=sess.hang||{};
     f.protocol=h.protocol||"repeater"; f.edge=h.edge??20; f.addedLb=h.addedLb??0; f.sets=h.sets??5; f.grip=h.grip||"half";
+    if(h.protocol==="abrahangs"){ f.abraDone=[...(h.done||[])]; f.abraHcLb=h.hcLb??0; f.abraDragLb=h.dragLb??0; }
   }
   if(sess.type==="lift"){
     const saved=(sess.lift||{}).entries||{};
@@ -2298,9 +2364,30 @@ function loadSessionIntoForm(sess){
   if(sess.type==="mobility") f.mobilityDone=[...((sess.mobility||{}).done||[])];
   return f;
 }
+/* Benchmarks aren't "sessions" (no finger/effort/notes, no plan-slot advancement, no PR
+   celebration) — they're independent point measurements, so saving them skips the whole
+   session-building path below and writes straight to store.benchmarks instead. */
+function commitBenchmarks(){
+  const f=ui.form;
+  store.benchmarks=store.benchmarks||[];
+  if(f.bwVal!==""){
+    store.settings.bodyweight=Number(f.bwVal);
+    store.settings.bodyweightSeeded=false;
+    store.benchmarks.push({id:uid(),date:f.date,metric:"bodyweight",value:Number(f.bwVal)});
+  }
+  if(f.hangVal!=="") store.benchmarks.push({id:uid(),date:f.date,metric:"hang",value:Number(f.hangVal)});
+  if(f.pullVal!=="") store.benchmarks.push({id:uid(),date:f.date,metric:"pull",value:Number(f.pullVal)});
+  save();
+  const keepDate=f.date;
+  ui.form=freshForm("benchmarks"); ui.form.date=keepDate;
+  ui.logStartedAt=null;
+  ui.flash=true; render();
+  setTimeout(()=>{ ui.flash=false; render(); },2000);
+}
 function commitSave(){
   if(!valid())return;
   const f=ui.form;
+  if(f.type==="benchmarks"){ commitBenchmarks(); return; }
   const s={id:ui.editingId||uid(),date:f.date,type:f.type,notes:f.notes.trim()};
   if(f.effort) s.rpe=EFFORT.find(e=>e.key===f.effort)?.rpe;
   if(f.finger) s.finger=f.finger;
@@ -2311,7 +2398,9 @@ function commitSave(){
     const att=Object.fromEntries(Object.entries(f.attempts||{}).filter(([,v])=>v>0));
     if(Object.keys(att).length) s.attempts=att;
   }
-  if(f.type==="hang") s.hang={protocol:f.protocol,edge:f.edge,addedLb:f.addedLb,sets:f.sets,grip:f.grip};
+  if(f.type==="hang") s.hang = f.protocol==="abrahangs"
+    ? {protocol:"abrahangs", done:[...(f.abraDone||[])], hcLb:Number(f.abraHcLb)||0, dragLb:Number(f.abraDragLb)||0}
+    : {protocol:f.protocol,edge:f.edge,addedLb:f.addedLb,sets:f.sets,grip:f.grip};
   if(f.type==="lift"){
     const entries={};
     LIFT_DAY.forEach(L=>{
@@ -2339,9 +2428,10 @@ function commitSave(){
     let priorHardestEver=-1;
     realSessions().forEach(x=>(x.grades||[]).forEach(g=>{ if(g>priorHardestEver) priorHardestEver=g; }));
     store.sessions.push(s);
-    // Mobility runs parallel to the phase's session-week cycle, not part of it — logging it
-    // shouldn't advance the plan's slot pointer through the climb/hang/lift rotation.
-    if(f.type!=="mobility") advanceProgress();
+    // Mobility and Abrahangs (a hang protocol, but a daily habit not tied to the phase's
+    // session-week rotation) both run parallel to the plan — logging either shouldn't advance
+    // the plan's slot pointer.
+    if(f.type!=="mobility" && !(f.type==="hang"&&f.protocol==="abrahangs")) advanceProgress();
     const newMax = (s.grades||[]).length ? Math.max(...s.grades) : -1;
     if(newMax>priorHardestEver && newMax>=0) ui.celebrate={...ui.celebrate, pr:newMax};
     if(MILESTONES.includes(realSessions().length)) ui.celebrate={...ui.celebrate, milestone:realSessions().length};
@@ -2406,11 +2496,37 @@ function wire(){
       updateSaveBtn();
     };
   });
+  // Abrahangs weight — typed directly (no stepper), same no-full-render pattern as data-lift
+  // so focus isn't lost mid-keystroke; coerced to a number at save time (commitSave).
+  $main.querySelectorAll("[data-abraweight]").forEach(inp=>{
+    inp.oninput=e=>{
+      const v=e.target.value.replace(/[^0-9.]/g,""); e.target.value=v;
+      ui.form[inp.dataset.abraweight]=v;
+      updateSaveBtn();
+    };
+  });
+  // benchmarks type — logged via the Save button like every other type, not auto-committed
+  $main.querySelectorAll("[data-bench]").forEach(inp=>{
+    inp.oninput=e=>{
+      const v=e.target.value.replace(/[^0-9.]/g,""); e.target.value=v;
+      ui.form[{bw:"bwVal",hang:"hangVal",pull:"pullVal"}[inp.dataset.bench]]=v;
+      updateSaveBtn();
+    };
+  });
   // mobility checklist
   $main.querySelectorAll("[data-mobility]").forEach(b=>b.onclick=()=>{
     const k=b.dataset.mobility, f=ui.form;
     const done=f.mobilityDone||[];
     f.mobilityDone = done.includes(k) ? done.filter(x=>x!==k) : [...done,k];
+    render();
+  });
+  // Abrahangs checklist — shares the mobility drill timer (data-mobtimer/toggleMobilityTimer
+  // are already keyed generically by drill key, so no separate timer state is needed), just
+  // its own done-list field so the two routines don't clobber each other.
+  $main.querySelectorAll("[data-abra]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.abra, f=ui.form;
+    const done=f.abraDone||[];
+    f.abraDone = done.includes(k) ? done.filter(x=>x!==k) : [...done,k];
     render();
   });
   $main.querySelectorAll("[data-mobtimer]").forEach(b=>b.onclick=(e)=>{
@@ -2454,16 +2570,6 @@ function wire(){
       ui._delTimer=setTimeout(()=>{ if(ui.confirmDel===id){ ui.confirmDel=null; render(); } },4000);
     }
   });
-  $main.querySelectorAll("[data-delbench]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.delbench;
-    if(ui.confirmDel===id){
-      store.benchmarks=(store.benchmarks||[]).filter(x=>x.id!==id); ui.confirmDel=null; save(); render();
-    } else {
-      ui.confirmDel=id; render();
-      clearTimeout(ui._delTimer);
-      ui._delTimer=setTimeout(()=>{ if(ui.confirmDel===id){ ui.confirmDel=null; render(); } },4000);
-    }
-  });
   // history card tap -> edit
   $main.querySelectorAll("[data-edit]").forEach(card=>card.onclick=()=>{
     const s=store.sessions.find(x=>x.id===card.dataset.edit); if(!s)return;
@@ -2481,6 +2587,12 @@ function wire(){
   const lm=$main.querySelector("#mobilityCard"); if(lm) lm.onclick=()=>{
     ui.editingId=null;
     ui.form=freshForm("mobility");
+    ui.gradeExpanded=false; ui.logMoreOpen=false; ui.logStartedAt=null; resetMobilityTimer(); resetRestTimer();
+    ui.tab="log"; render();
+  };
+  const la=$main.querySelector("#abraCard"); if(la) la.onclick=()=>{
+    ui.editingId=null;
+    ui.form=freshForm("hang","abrahangs");
     ui.gradeExpanded=false; ui.logMoreOpen=false; ui.logStartedAt=null; resetMobilityTimer(); resetRestTimer();
     ui.tab="log"; render();
   };
@@ -2621,23 +2733,6 @@ function wire(){
     ui.rawEditSaved=skipped>0?`Applied (${skipped} invalid session${skipped===1?"":"s"} skipped)`:"Applied";
     render();
     setTimeout(()=>{ ui.rawEditSaved=false; render(); },2200);
-  };
-  // benchmarks
-  const bw=$main.querySelector("#bw"); if(bw) bw.onchange=e=>{
-    const v=e.target.value===""?null:Number(e.target.value);
-    store.settings.bodyweight=v;
-    store.settings.bodyweightSeeded=false;
-    if(v!=null){ store.benchmarks=store.benchmarks||[]; store.benchmarks.push({id:uid(),date:todayStr(),metric:"bodyweight",value:v}); }
-    save(); render();
-  };
-  const bht=$main.querySelector("#benchHistToggle"); if(bht) bht.onclick=()=>{ ui.benchHistoryOpen=!ui.benchHistoryOpen; render(); };
-  const lb=$main.querySelector("#logBench"); if(lb) lb.onclick=()=>{
-    const hv=$main.querySelector("#benchHang").value, pv=$main.querySelector("#benchPull").value;
-    store.benchmarks=store.benchmarks||[];
-    const d=todayStr();
-    if(hv!=="") store.benchmarks.push({id:uid(),date:d,metric:"hang",value:Number(hv)});
-    if(pv!=="") store.benchmarks.push({id:uid(),date:d,metric:"pull",value:Number(pv)});
-    save(); render();
   };
   // target grade
   $main.querySelectorAll("[data-tstep]").forEach(b=>b.onclick=()=>{

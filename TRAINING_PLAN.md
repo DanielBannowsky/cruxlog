@@ -29,20 +29,19 @@ This last point matters most for sequencing. The literature on detraining and re
 
 Climbing happens 3x/week — a real, fixed cadence — with lift on whatever other day fits. The app stays session-driven and day-agnostic (no weekday text anywhere in the plan or its slot labels — see "Resolved decisions" below); the constraints that actually shape session placement are equipment- and athlete-driven, not calendar-based:
 
-- **Max-hang-protocol testing (true max effort or a lighter "maintenance" load) and max-weight pull-up testing are not app-prescribed workouts at all.** This athlete tests both on their own on weekends and logs the results via Benchmarks (Progress tab) — the app's own self-entry flow for exactly this. No hangboard-max slot appears anywhere in the weekly templates.
+- **Hangboard is not an app-prescribed workout slot at all.** It's all Abrahangs now (see "Daily Hangboard (Abrahangs)" below) — a daily, sub-maximal habit that runs parallel to the plan the same way Mobility does, logged from its own Plan-tab card rather than rotating through a slot. Max-hang-protocol testing (true max effort) and max-weight pull-up testing are likewise not app-prescribed workouts — this athlete tests both on their own on weekends and logs the results via Benchmarks (Progress tab).
 - **Lift is always its own standalone session** — never framed as happening the same visit as a climb. It needs its own day.
-- **Repeater-protocol hang sessions can be done at home or at the gym**, so they stay flexible — the plan keeps a repeater slot adjacent to a climb slot as an optional same-session pairing, but nothing requires combining them. Repeaters are a different, submax stimulus (tendon durability) from max-hang testing, which is why they're still a prescribed slot.
 
-With max-hang testing removed from the weekly templates, every phase's slot order keeps finger-intensive sessions (any hang, or a climb targeting RPE≥9) non-adjacent — and every phase now manages that cleanly, including Performance, which previously couldn't:
+With no hangboard slot in the weekly templates at all, every phase's slot order keeps finger-intensive sessions (a climb targeting RPE≥9, back-to-back) non-adjacent — and every phase now manages that cleanly, including Performance, which previously couldn't:
 
 | Phase | Finger-intensive slots | Spacing (slots between) |
 |---|---|---|
-| Reconditioning | 2× hang (repeater) | 2 non-finger slots between each |
-| Strength Base | repeater hang, limit climb | 1 non-finger slot between each |
+| Reconditioning | none | — |
+| Strength Base | limit climb (only finger-intensive slot) | trivially clear — nothing to space against |
 | Power | limit climb (only finger-intensive slot) | trivially clear — nothing to space against |
 | Performance | project climb, project climb | alternated with the 2 non-finger slots (lift, volume/technique) so neither project day is ever adjacent to the other |
 
-Sources: Schweizer & Hudek (2011); Mundry, Steinmetz, Atkinson, Schilling, Schöffl, Saul (2021) — see "Sources referenced" below. Hangboard-before/after-climbing sequencing still applies to the one remaining same-session pairing (a repeater slot next to a climb slot): repeaters go **after** climbing — submax, fine once warmed up (omaharockgym.com, "The Best Time to Hangboard: Before or After Climbing?"; thehangboard.com, "Hangboard Training After Climbing"). The before-climbing / fresh-fingers guidance those sources give for *max* hangs no longer applies to any plan slot, since max-hang testing isn't one anymore.
+Sources: Schweizer & Hudek (2011); Mundry, Steinmetz, Atkinson, Schilling, Schöffl, Saul (2021) — see "Sources referenced" below.
 
 ## Phase structure (26-week roadmap, ~6 months)
 
@@ -51,28 +50,28 @@ This is aggressive but realistic *given the "rebuilding" starting point* — som
 ### Phase 0 — Reconditioning (4 session-weeks)
 **Goal:** rebuild tendon tolerance, general work capacity, and movement fluency before loading anything near-max.
 - Climbing: 3 sessions/session-week, volume-focused. V1–V4 — up to your comfortable ceiling is fine, the constraint is volume/footwork focus and no *limit* attempts, not an arbitrarily low grade cap. One of these is ARC-style (Aerobic Restoration & Capillarity, per Hörst) traversing/easy bouldering for 20-30 min continuous movement.
-- Hangboard: **repeaters only**, moderate edge (~20mm), bodyweight, Eva López beginner protocol (7s hang / 3s rest x 6, 3 min between sets, 2 sets per grip type), 2 sessions/session-week — home or gym, optionally same-session as a climb.
+- Hangboard: daily Abrahangs (see "Daily Hangboard (Abrahangs)" below) — not a session-week slot, runs every day of every phase.
 - Weights: **1 standalone session/week** — see Lift Day Protocol below. Same program every phase now (see that section for why).
 - No limit bouldering, no max hangs, no campus board this phase.
 
 ### Phase 1 — Strength Base (8 session-weeks)
 **Goal:** build the max-strength ceiling (fingers + pull) that later power work will convert into hard moves.
 - Climbing: 3 sessions/session-week — two volume days (one of them volume/ARC) and one project/limit session at V5-V6.
-- Hangboard: 1 repeater session/session-week (home or gym, optionally same-session as a volume climb) for tendon durability. Max-hang strength testing is self-managed on weekends (see "Training cadence and equipment constraints" above) — not a prescribed slot.
+- Hangboard: daily Abrahangs (see below). Max-hang strength testing is self-managed on weekends (see "Training cadence and equipment constraints" above) — not a prescribed slot.
 - Weights: **1 standalone session/week** — see Lift Day Protocol below. Same program every phase now (see that section for why).
 - Deload every 4th session-week: halve hangboard/lift volume, keep climbing light.
 
 ### Phase 2 — Power & Power-Endurance (8 session-weeks)
 **Goal:** convert raw strength into climbing-specific power (dynamic movement, campus-board coordination) and the ability to link hard moves (power-endurance).
 - Climbing: 3 sessions/session-week — a limit-bouldering session, a power-endurance session (4x4s or linked circuits), and a volume/campus day.
-- Hangboard: self-managed on weekends, not a prescribed slot (see above) — this phase's plan only maintains what Strength Base built, so there's no repeater slot here either.
+- Hangboard: daily Abrahangs (see below), same as every phase.
 - Weights: **1 standalone session/week** — see Lift Day Protocol below. Same program every phase now (see that section for why).
 - Deload every 4th session-week as before.
 
 ### Phase 3 — Performance / Send Phase (6 session-weeks)
 **Goal:** target grade progress — V6→V7→V8 attempts, technique refinement on personal weaknesses, tapering physical training volume so climbing performance peaks.
 - Climbing: 3 sessions/session-week, mostly projecting, 1 volume/technique day.
-- Hangboard: self-managed on weekends, not a prescribed slot (see above).
+- Hangboard: daily Abrahangs (see below), same as every phase.
 - Weights: **1 standalone session/week** — see Lift Day Protocol below. Same program every phase now (see that section for why).
 - Reassess: if stalled at a grade for 3+ session-weeks, that grade is your new "Phase 1 target" — cycle back into a shorter (6-8 session-week) strength block focused on the specific limiter (finger strength vs power vs endurance) before resuming projecting.
 
@@ -118,12 +117,24 @@ Unlike the Lift/Hang/Climb rotation, mobility isn't part of the session-week slo
 
 **Why dynamic, not static.** This routine is built from controlled, moving mobility work (joint circles, rocking, active range-of-motion) rather than long static holds, because dynamic mobility work is safe and effective any time of day — morning, night, rest day, doesn't matter — while static stretching held right before a high-intensity effort has a well-documented acute effect of transiently reducing maximal strength and power output (Behm, D.G. & Chaouachi, A. (2011), *A review of the acute effects of static and dynamic stretching on performance*, European Journal of Applied Physiology). Practical implication: this routine is safe to do whenever fits your day; if you want to add longer static-stretch holds on top of it, keep those away from the hours right before a max-hang or limit-bouldering session specifically, not this routine.
 
+## Daily Hangboard — Abrahangs (under 2 minutes, twice a day)
+
+Hangboard is Abrahangs now, full stop — Repeaters and Max Hang are no longer offered for new entries (old logged sessions of either are still viewable/editable, just not something the app prescribes or lets you newly pick). Like Mobility, it runs in parallel to the phase/slot rotation rather than as a prescribed session — logging it doesn't advance the plan pointer, and it's explicitly excluded from the finger-recovery-spacing guardrail (see "Injury-risk guardrails" below), because the whole point of the protocol is that it's sub-maximal enough to not need rest-day spacing. In the app it's still filed under the "Hang" type (it's still finger-loading on a hangboard edge), just with no protocol picker anymore since there's only the one protocol in active use.
+
+**Protocol**: performed on a portable hand hangboard cabled to a weight stack, one hand at a time — there's no bodyweight component at all, just the attached weight pulling on your fingers, kept sub-maximal (roughly 70-80% of what you could hold to failure). Hold 10s, rest ~50s. The session logged in-app is Emil Abrahamsson's original: 3×10s half crimp + 3×10s three-finger drag — 60s of actual loading, checked off one hold at a time via a Lift-style card (one numbered card per grip, a weight stepper in the header, a set-by-set table below — tap a set to time the hold and mark it done).
+
+**Weight**: half crimp and three-finger drag are tracked as two independent added-weight values, not one shared number — the two grips don't have the same max capacity, so capping the stronger one to whatever the weaker one can hold would leave strength on the table. Each progresses on its own autoregulated schedule, same formula as legacy Repeaters/Max Hang weight: RPE ≤7 with no pain/tweaky flag → +5lb next session; RPE 8+ or pain/tweaky → hold; deload session-week → half load.
+
+**Frequency**: ideally twice a day, 6+ hours apart, every day — including climbing days, since the load is low enough not to compete with anything else on the calendar. The Plan tab card tracks it as a count against that target ("1/2 today") rather than mobility's plain done/not-done, since hitting one session vs. two is a meaningfully different signal here.
+
+**Why it's here**: Gilmore, Klimek, Abrahamsson & Baar (2024), *Effects of Different Loading Programs on Finger Strength in Rock Climbers*, Sports Med Open 10:125 (PMID 39560837) — a retrospective analysis of climbers' logged training (via the Crimpd app) found frequent low-intensity finger loading (Abrahangs) built grip strength as effectively as Max Hangs, and that combining both protocols produced additive gains over either alone. The mechanistic basis (per co-author Keith Baar's tendon-loading research, cited in the paper) is that connective tissue becomes refractory to further stimulus after ~10 minutes of loading and needs 6+ hours before it can respond to a new one — hence the twice-daily, 6-hours-apart structure, and why more than 10 minutes per session doesn't add anything.
+
 ## Session order per phase
 
-The app cycles through these lists once per session-week; order is a guide, not a hard sequence — log whatever type you actually did and it still advances. No weekday is attached to any slot — place each one on whichever of your training days fits, subject to the equipment constraints above (lift is standalone; repeaters can optionally pair with the climb slot next to them, done same-session, home or gym). Max-hang and max-pull-up testing aren't in these lists at all — self-managed on weekends, logged via Benchmarks.
+The app cycles through these lists once per session-week; order is a guide, not a hard sequence — log whatever type you actually did and it still advances. No weekday is attached to any slot — place each one on whichever of your training days fits, subject to the equipment constraints above (lift is standalone). Hangboard (daily Abrahangs), max-hang, and max-pull-up testing aren't in these lists at all — Abrahangs is logged from its own Plan-tab card every day regardless of phase, and max-hang/max-pull-up testing is self-managed on weekends, logged via Benchmarks.
 
-**Reconditioning:** Climb (volume) → Hang (repeaters) → Climb (volume) → Climb (ARC/easy) → Hang (repeaters) → Lift (light)
-**Strength Base:** Climb (volume) → Hang (repeaters) → Climb (volume/ARC) → Climb (project/limit) → Lift (build)
+**Reconditioning:** Climb (volume) → Climb (volume) → Climb (ARC/easy) → Lift (light)
+**Strength Base:** Climb (volume) → Climb (volume/ARC) → Climb (project/limit) → Lift (build)
 **Power & Power-Endurance:** Climb (limit) → Climb (power-endurance) → Lift (maintain) → Climb (volume/campus)
 **Performance / Send:** Climb (project) → Lift (maintain) → Climb (project) → Climb (volume/technique)
 
@@ -146,7 +157,7 @@ Other things worth logging per session so the app can flag stalls/overtraining:
 
 ## Injury-risk guardrails (implemented in the app's Plan tab)
 
-- Never max-hang or limit-boulder on consecutive calendar days (48h rule) — scans all adjacent pairs across your last 10 finger-intensity sessions, not just the single most recent pair, so a violation buried a few sessions back (e.g. after an edited/backfilled entry) still gets caught. The slot order (see "Training cadence and equipment constraints" above) keeps you clear of this by construction as long as you follow it; this guardrail is the backstop for when real life doesn't cooperate.
+- Never max-hang or limit-boulder on consecutive calendar days (48h rule) — scans all adjacent pairs across your last 10 finger-intensity sessions, not just the single most recent pair, so a violation buried a few sessions back (e.g. after an edited/backfilled entry) still gets caught. The slot order (see "Training cadence and equipment constraints" above) keeps you clear of this by construction as long as you follow it; this guardrail is the backstop for when real life doesn't cooperate. Abrahangs sessions are excluded from this and the frequency flag below — sub-maximal by design, so daily/twice-daily logging isn't a violation (see "Daily Abrahangs" above).
 - Flag if finger-intensity sessions (hangboard, or a climb session logged at RPE 9+) exceed 3 in the last 7 calendar days.
 - Flag a deload session-week automatically every 4th session-week of Strength Base or Power & Power-Endurance, **and** the moment a phase is confirmed held past its nominal length on an unmet benchmark — running a full phase without hitting the target is itself a signal to back off before continuing to chase it.
 - Surface a warning on 2 consecutive pain-flagged sessions (deload required), or a softer warning when 2 of your last 3 finger-flagged sessions show pain/tweaky even if not consecutive or identical — an alternating pattern (pain → good → tweaky) is still a recurring-issue signal that a strict-consecutive check would miss.
@@ -167,7 +178,7 @@ Earlier drafts of this plan wrote static grade ranges ("V0–V3") and load targe
 - Power-endurance: comfortable grade to 1 above
 - Project (Performance phase): target grade minus 2, up to target grade
 
-**Suggested hangboard load** is autoregulated from your own session history, not a fixed number: take your last logged session at that protocol (max hang or repeaters), and if you finished it at RPE ≤7 with **no pain or tweaky flag**, add 5lb; if it was RPE 8+ or pain/tweaky was flagged, hold; during a deload session-week, suggest half the normal load regardless. With no prior max-hang sessions, it seeds from your logged max-hang benchmark if you have one, otherwise starts at bodyweight. (Tweaky now holds the same as pain — an earlier version only held on pain, which was inconsistent with the guardrail that treats two tweaky flags as warning-worthy in its own right.)
+**Suggested hangboard load** is autoregulated from your own session history, not a fixed number: take your last logged session at that protocol/grip, and if you finished it at RPE ≤7 with **no pain or tweaky flag**, add 5lb; if it was RPE 8+ or pain/tweaky was flagged, hold; during a deload session-week, suggest half the normal load regardless. Abrahangs runs this per grip independently (half crimp and 3-finger drag progress on their own weight, since they don't share a max capacity); legacy Repeaters/Max Hang entries use the same formula against a single weight. With no prior sessions at all, Abrahangs starts at no weight (there's no bodyweight baseline to seed from), while legacy Max Hang seeds from your logged max-hang benchmark if you have one. (Tweaky now holds the same as pain — an earlier version only held on pain, which was inconsistent with the guardrail that treats two tweaky flags as warning-worthy in its own right.)
 
 **Suggested lift load** works the same way, but only for weighted pull-up, overhead press, and squat — the three lifts this plan's Lift Day Protocol explicitly treats as progressive-overload targets. The other three (band pull-apart, wrist extensor curl, hanging leg raise) are prehab/maintenance by design, so the app suggests holding steady rather than pushing them, matching the doc's own guidance that they're "not the point of the session." Progression on the three target lifts only auto-suggests +5lb during Strength Base, and only when the previous top set actually hit the rep target (3 reps for pull-up, 5 for OHP, 8 for squat) with no pain/tweaky flag on that session — during Power/Performance the suggestion holds at the current weight even after a clean set, since those phases are explicitly maintenance for lifting.
 
@@ -193,6 +204,7 @@ This is real autoregulation (Source: standard resistance-training autoregulation
 - Schöffl, V. et al. — climbing injury epidemiology literature (overuse injury patterns, antagonist training rationale).
 - Eva López — hangboard repeater and max-hang protocols (Spanish national climbing team methodology), widely summarized across the climbing training community.
 - Steve Bechtel — *Logical Progression*, "Make or Break" grip-strength standards (Climb Strong).
+- Gilmore, N.K., Klimek, P., Abrahamsson, E., Baar, K. (2024). *Effects of Different Loading Programs on Finger Strength in Rock Climbers.* Sports Medicine - Open 10:125 (PMID 39560837) — retrospective Crimpd-app analysis behind the Daily Hangboard (Abrahangs) protocol above.
 - Eric J. Hörst — *Training for Climbing* (3rd ed.), ARC training concept, periodization model.
 - Mike & Mark Anderson — *The Rock Climber's Training Manual*, foundational-strength-first periodization model.
 - Lattice Training — published grip-strength normative data and public periodization commentary.
