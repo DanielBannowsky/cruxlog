@@ -216,7 +216,7 @@
 /* ============================ constants ============================ */
 // Bump alongside sw.js's CACHE string on every deploy — shown in the header so it's
 // obvious at a glance (e.g. after a force-close/reopen) which build is actually running.
-const APP_VERSION = "v48";
+const APP_VERSION = "v49";
 const KEY = "climb-tracker-v1";
 const DRAFT_KEY = "climb-tracker-v1-draft";
 /* V0-V16 — extended past the V10 "typical" ceiling so target/comfortable-grade settings
@@ -315,12 +315,16 @@ const DEFAULTS = {
   lastLiftDay:null, dailyChecks:{}, seedCalDates:[],
   settings:{targetGrade:8, bodyweight:null, comfortableGrade:null, bodyweightSeeded:false},
   benchmarks:[], // {id,date,metric:'hang'|'pull',value}
-  progress:{phaseIdx:0, weekInPhase:1, slot:0}, // advances only when a session is logged — never tied to the calendar
+  progress:{phaseIdx:0, phaseStartDate:null}, // phaseStartDate set on first load(); phase/week are computed live from it
 };
 
-/* ---- program: phases + weekly templates, from TRAINING_PLAN.md ----
-   Progress through this is driven entirely by logged sessions, not dates.
-   Miss a day, take a week off, whatever — the plan just waits at the same slot. */
+/* ---- program: phases, from TRAINING_PLAN.md ----
+   Phase progression is calendar-driven (weeks elapsed since the phase started), gated by each
+   phase's benchmark exit condition — see currentProgress() below. Climbing and Lift are both
+   generic, always-available log entries now (Plan-tab cards, not a prescribed weekly rotation
+   of specific sub-types/slots) — phases still track overall training-block progress and drive
+   guardrails (deload cadence, strength-phase gating), just without dictating exactly what kind
+   of climbing session to do next. */
 const PHASES = [
   {key:"recon",    name:"Reconditioning",          weeks:4,
     note:"Rebuild tendon tolerance & volume. No limit bouldering, no max hangs."},
@@ -332,67 +336,6 @@ const PHASES = [
     note:"Project V6–V8. Taper training volume, chase sends."},
 ];
 const TOTAL_WEEKS = PHASES.reduce((a,p)=>a+p.weeks,0);
-
-// ordered session slots per phase — exactly one lift slot/week in every phase (see TRAINING_PLAN.md).
-// "full" is the longer coaching note shown when you tap the Up Next card for detail. Lift is
-// now a fixed year-round program (Greyskull-style AMRAP progression), independent of climbing
-// phase — same description in every phase rather than 4 near-duplicate phase-keyed variants.
-const LIFT_FULL_TEXT = "6 lifts. Pull-up/squat/OHP: warm up 55/70/85%, then 2 sets + 1 AMRAP set — progress off the AMRAP result. Front lever: timed holds. Inverted row/wrist curl: steady load, not a max-effort target.";
-/* {{grade}} is resolved at render time from your logged send history (see gradeRangeFor). */
-/* Climbing is fixed at 3x/week (the athlete's own real schedule) with lift on whatever
-   other day fits — the app stays session-driven/day-agnostic (no weekday text in labels).
-   Hangboard is NOT a plan slot at all: it's all Abrahangs now (a daily, sub-maximal habit,
-   not a max-strength test), which runs parallel to the plan the same way Mobility does —
-   logged from its own Plan-tab card, doesn't advance the slot pointer — rather than rotating
-   through the climb/lift slots below. Max-weight pull-up testing is likewise self-managed via
-   Benchmarks (Progress tab), not a plan slot. Lift is always its own standalone session —
-   never framed as "same visit" as a climb. Every phase's slot order keeps finger-intensive
-   slots (a climb targeting RPE≥9, back-to-back) non-adjacent — see TRAINING_PLAN.md "Finger
-   recovery spacing" for the full audit and sources (Schweizer & Hudek 2011; Mundry, Steinmetz,
-   Atkinson, Schilling, Schöffl, Saul 2021). */
-const WEEKLY_TEMPLATES = {
-  recon:[
-    {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
-      full:"Grade: {{grade}}. Volume: high. Angle: easy-moderate. Constraint: footwork precision, not difficulty. No limit attempts."},
-    {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · high volume · footwork", targetRpe:5, gradeRole:"volume",
-      full:"Same as the other volume day. Grade: {{grade}}. Mileage + footwork, not difficulty."},
-    {type:"climb",label:"Climb — ARC / easy (active recovery)", detail:"{{grade}} · 20–30min continuous", targetRpe:4, gradeRole:"arc",
-      full:"Grade: {{grade}}. Duration: 20-30min continuous movement, minimal rest. No pump."},
-    {type:"lift", label:"Lift", detail:"6 lifts · Greyskull-style", targetRpe:6,
-      full:LIFT_FULL_TEXT+" Own session — not paired with a climbing day."},
-  ],
-  strength:[
-    {type:"climb",label:"Climb — volume (mileage/footwork)", detail:"{{grade}} · footwork drills", targetRpe:6, gradeRole:"volume",
-      full:"Grade: {{grade}}. Volume: moderate. Include 2-3 footwork-drill problems. Warm up before harder attempts."},
-    {type:"climb",label:"Climb — volume / ARC (mileage)", targetRpe:5, gradeRole:"volume",
-      full:"Grade: {{grade}}. Active recovery / mileage."},
-    {type:"climb",label:"Climb — project/limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
-      full:"Grade: {{grade}}. Volume: low. Rest: full (3-5min) between attempts. Movement quality not required."},
-    {type:"lift", label:"Lift", detail:"6 lifts · Greyskull-style", targetRpe:6,
-      full:LIFT_FULL_TEXT+" Own session — not paired with a climbing or hangboard day."},
-  ],
-  power:[
-    {type:"climb",label:"Climb — limit (your hardest attempts)", detail:"{{grade}} · low volume · full rest", targetRpe:9, gradeRole:"limit",
-      full:"Grade: {{grade}}. Volume: low. Rest: full between attempts."},
-    {type:"climb",label:"Climb — power-endurance (linking hard moves)", detail:"4x4s · {{grade}}", targetRpe:8, gradeRole:"powerEnd",
-      full:"Grade: {{grade}}. Protocol: 4x4s or linked circuits. Rest: minimal between attempts."},
-    {type:"lift", label:"Lift", detail:"6 lifts · Greyskull-style", targetRpe:6,
-      full:LIFT_FULL_TEXT+" Own session — not paired with a climbing or hangboard day."},
-    {type:"climb",label:"Climb — volume / campus (mileage)", targetRpe:5, gradeRole:"volume",
-      full:"Grade: {{grade}} volume, or campus (basic ladders, matching only)."},
-  ],
-  perform:[
-    {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
-      full:"Grade: {{grade}}. Rest: full between burns."},
-    {type:"lift", label:"Lift", detail:"6 lifts · Greyskull-style", targetRpe:6,
-      full:LIFT_FULL_TEXT+" Own session — not paired with a climbing day."},
-    {type:"climb",label:"Climb — project (chasing the send)", detail:"{{grade}} · full rest", targetRpe:9, gradeRole:"project",
-      full:"2nd project session this week. Grade: {{grade}}. Rest: full between burns."},
-    {type:"climb",label:"Climb — volume / technique (mileage)", targetRpe:5, gradeRole:"volume",
-      full:"Grade: {{grade}}. Volume or technique review (film footwork/hips on project crux)."},
-  ],
-};
-function slotsOf(phaseKey){ return WEEKLY_TEMPLATES[phaseKey]||WEEKLY_TEMPLATES.strength; }
 
 /* Sessions from "Load sample data" (Progress > data management) are tagged {seed:true} so
    they never feed real stats/guardrails/streaks — only the heatmap and History list show
@@ -436,39 +379,16 @@ function effectiveComfortableGrade(){
   }
   return cg;
 }
-function gradeRangeFor(role){
+// Generic suggested working band around your comfortable grade — no prescribed sub-focus
+// (volume/limit/project/etc.) anymore, just a single "here's roughly where you're at" range
+// the grade log highlights, independent of what kind of climbing you're actually doing today.
+function gradeRangeFor(){
   const cg=effectiveComfortableGrade();
-  const target=store.settings.targetGrade??8;
-  switch(role){
-    case "volume": return [Math.max(0,cg-3), cg];
-    case "arc": return [Math.max(0,cg-4), Math.max(0,cg-2)];
-    case "limit": return [cg+1, cg+2];
-    case "powerEnd": return [cg, cg+1];
-    case "project": return [Math.max(cg+1,target-2), target];
-    default: return [Math.max(0,cg-2), cg];
-  }
+  return [Math.max(0,cg-2), cg];
 }
-function gradeRangeText(role){
-  const [lo,hi]=gradeRangeFor(role);
+function gradeRangeText(){
+  const [lo,hi]=gradeRangeFor();
   return lo>=hi ? `V${hi}` : `V${lo}–V${hi}`;
-}
-function resolveSlotText(slot){
-  const grade = slot.gradeRole ? gradeRangeText(slot.gradeRole) : "";
-  const load = slot.type==="hang" ? loadText(suggestHangLoad(slot.protocol)) : "";
-  const sub=(s)=> s ? s.replace(/\{\{grade\}\}/g,grade).replace(/\{\{load\}\}/g,load) : s;
-  return {...slot, detail:sub(slot.detail), full:sub(slot.full)};
-}
-/* Finds the plan slot (in the current phase) that best matches whatever the Log form is
-   currently set to, so the Log tab can always show full protocol detail — not just when
-   you arrived there via the Plan tab's "Log this session" button. */
-function findMatchingSlot(f){
-  const slots=currentProgress().slots;
-  // Abrahangs is a daily habit, not one of the plan's prescribed repeater/max hang slots — no
-  // match, same as mobility, so it never inherits a plan slot's info card or intensity target.
-  if(f.type==="hang") return f.protocol==="abrahangs" ? null : (slots.find(s=>s.type==="hang"&&s.protocol===f.protocol) || slots.find(s=>s.type==="hang"));
-  if(f.type==="climb") return slots.find(s=>s.type==="climb"&&s.gradeRole===(f.gradeRole||"volume")) || slots.find(s=>s.type==="climb");
-  if(f.type==="lift") return slots.find(s=>s.type==="lift");
-  return null;
 }
 
 /* ---- dynamic load prescription ----
@@ -565,43 +485,35 @@ function benchmarkGateStatus(phaseKey){
   }
   return {applies:false, met:true, text:""};
 }
+/* Phase progress is entirely calendar-driven now (weeks elapsed since phaseStartDate), not
+   tied to logging any particular count/type of session — a pure, idempotent computation from
+   stored state, so it needs no "advance" call anywhere (unlike the old slot-based version).
+   Rolls forward through phases as time passes, holding at a phase past its nominal length if
+   that phase's benchmark exit condition isn't met yet (same gate logic as before), capped at
+   1.5x the phase's nominal length either way. */
 function currentProgress(){
   const p = store.progress || DEFAULTS.progress;
-  const phaseIdx = Math.min(p.phaseIdx, PHASES.length-1);
-  const phase = PHASES[phaseIdx];
-  const slots = slotsOf(phase.key);
-  const cap = Math.ceil(phase.weeks*1.5);
-  const weekInPhase = Math.min(Math.max(p.weekInPhase,1), cap);
-  const slot = Math.min(Math.max(p.slot,0), slots.length-1);
+  let phaseIdx = Math.min(p.phaseIdx ?? 0, PHASES.length-1);
+  let phaseStartDate = p.phaseStartDate || todayStr();
+  let held=false, gate=benchmarkGateStatus(PHASES[phaseIdx].key), cap=Math.ceil(PHASES[phaseIdx].weeks*1.5);
+  for(let guard=0; guard<PHASES.length; guard++){
+    const phase=PHASES[phaseIdx];
+    cap=Math.ceil(phase.weeks*1.5);
+    gate=benchmarkGateStatus(phase.key);
+    const elapsedWeeks=Math.floor(dayDiff(todayStr(),phaseStartDate)/7)+1;
+    if(elapsedWeeks<=phase.weeks){ held=false; break; }
+    const blocked = gate.applies && gate.met===false && elapsedWeeks<=cap;
+    if(blocked || phaseIdx>=PHASES.length-1){ held=blocked; break; }
+    phaseStartDate=addDays(phaseStartDate, phase.weeks*7);
+    phaseIdx++;
+  }
+  const phase=PHASES[phaseIdx];
+  const elapsedWeeks=Math.floor(dayDiff(todayStr(),phaseStartDate)/7)+1;
+  const weekInPhase=Math.min(Math.max(elapsedWeeks,1), cap);
   const donePhaseWeeks = PHASES.slice(0,phaseIdx).reduce((a,ph)=>a+ph.weeks,0);
   const absWeek = donePhaseWeeks + Math.min(weekInPhase,phase.weeks);
-  const gate = benchmarkGateStatus(phase.key);
-  const held = gate.applies && gate.met===false && weekInPhase>phase.weeks;
-  // Deload every 4th week, PLUS the moment a phase confirms as held past its nominal length —
-  // an unmet benchmark after the full phase duration is itself a signal to back off before continuing.
-  const heldEntry = held && weekInPhase===phase.weeks+1;
-  return {phaseIdx,phase,slots,weekInPhase,slot,absWeek,cap,gate,held,next:slots[slot],
-    isDeload:(phase.key==="strength"||phase.key==="power") && (weekInPhase%4===0 || heldEntry)};
-}
-function advanceProgress(){
-  const cur=currentProgress();
-  let {phaseIdx,weekInPhase,slot}=cur;
-  const slots=cur.slots;
-  slot++;
-  if(slot>=slots.length){
-    slot=0; weekInPhase++;
-    if(weekInPhase>cur.phase.weeks){
-      const gate=benchmarkGateStatus(cur.phase.key);
-      const blocked = gate.applies && gate.met===false && weekInPhase<=cur.cap;
-      if(!blocked){
-        weekInPhase=1;
-        if(phaseIdx<PHASES.length-1) phaseIdx++;
-        else { store.progress={phaseIdx,weekInPhase:cur.phase.weeks,slot:slots.length-1,completedCycle:true}; return; }
-      }
-      // else: held — stay in this phase past its nominal length until the benchmark is met or the cap is hit
-    }
-  }
-  store.progress={phaseIdx,weekInPhase,slot};
+  return {phaseIdx,phase,phaseStartDate,weekInPhase,absWeek,cap,gate,held,
+    isDeload:(phase.key==="strength"||phase.key==="power") && (weekInPhase%4===0 || held)};
 }
 
 // Abrahangs is explicitly sub-maximal (feet on the ground, ~70-80% effort) — the whole point
@@ -694,53 +606,32 @@ function computeGuardrails(store){
     if(stalled) out.push({level:"warn",text:stalled});
   }
 
-  // RPE/intensity-mismatch — flags intensity creep: logging a much harder effort than the day called for.
-  if(sessions[0] && sessions[0].intensityFlag){
-    const {target,actual}=sessions[0].intensityFlag;
-    out.push({level:"warn",text:`That last session ran harder than planned — logged effort was RPE ${actual}, this slot targets around RPE ${target}. Ease off on the next easy day.`});
-  }
-
-  // readiness caution — if the most recent readiness log was poor and the next session is high-intensity.
+  // readiness caution — if the most recent readiness log was poor, a generic nudge toward
+  // going lighter next time (no specific prescribed "next session" to compare intensity
+  // against anymore, so this no longer targets a particular upcoming RPE).
   const lastReadiness=sessions.find(s=>s.sleep||s.soreness);
-  if(lastReadiness && (lastReadiness.sleep==="poor" || lastReadiness.soreness==="sore") && (cur.next?.targetRpe??0)>=8){
-    out.push({level:"warn",text:`Consider swapping in something lighter — you logged ${lastReadiness.sleep==="poor"?"poor sleep":"soreness"} last time, and the next session (${cur.next.label}) is high-intensity.`});
+  if(lastReadiness && (lastReadiness.sleep==="poor" || lastReadiness.soreness==="sore")){
+    out.push({level:"warn",text:`Consider swapping in something lighter next time — you logged ${lastReadiness.sleep==="poor"?"poor sleep":"soreness"} last session.`});
   }
 
   return out;
 }
-/* One contextual line for the "Up next" card, composed entirely from data already computed
-   elsewhere (trend/tries helpers) — replaces the old standalone next-grade card. */
-function sessionInsight(next){
-  if(next.type==="climb"){
-    if(next.gradeRole==="limit" || next.gradeRole==="project"){
-      const t=triesAtNextGrade();
-      if(t) return t.tries>0
-        ? `${t.tries} ${t.tries===1?"try":"tries"} logged at V${t.projectGrade} so far.`
-        : `No tries logged yet at V${t.projectGrade} — first crack today.`;
-    }
-    const recent=sendsAttemptsSeries(3);
-    if(recent.length){
-      const sends=recent.reduce((a,r)=>a+r.sends,0), att=recent.reduce((a,r)=>a+r.attempts,0);
-      return `Last ${recent.length} climbing session${recent.length===1?"":"s"}: ${sends} sends, ${att} attempts.`;
-    }
-    return "First climb session logged sets your baseline.";
+/* One contextual line for the generic Climb/Lift Plan-tab cards, composed entirely from data
+   already computed elsewhere (trend/tries helpers) — no prescribed "next session" to key off
+   anymore, so these are always the same general recent-activity summary regardless of what
+   you're about to log. */
+function climbInsight(){
+  const recent=sendsAttemptsSeries(3);
+  if(recent.length){
+    const sends=recent.reduce((a,r)=>a+r.sends,0), att=recent.reduce((a,r)=>a+r.attempts,0);
+    return `Last ${recent.length} climbing session${recent.length===1?"":"s"}: ${sends} sends, ${att} attempts.`;
   }
-  if(next.type==="hang"){
-    const protocol=next.protocol||"repeater";
-    const grip=latestGripFor(protocol);
-    const t=hangTrend(protocol,grip);
-    if(t.length>=2){
-      const dir = t[t.length-1]>t[0] ? "climbing" : t[t.length-1]<t[0] ? "down" : "holding steady";
-      return `Load ${dir} — last ${t.length}: ${t.join("→")}lb.`;
-    }
-    return `First ${protocol==="max"?"max hang":"repeater"} session — establishing baseline load.`;
-  }
-  if(next.type==="lift"){
-    const t=liftTrend("pullup");
-    if(t.length>=2) return `Pull-up top set: ${t.slice(-3).join("→")}lb.`;
-    return "Lift day — same six exercises, every week.";
-  }
-  return null;
+  return "First climb session logged sets your baseline.";
+}
+function liftInsight(){
+  const t=liftTrend("pullup");
+  if(t.length>=2) return `Pull-up top set: ${t.slice(-3).join("→")}lb.`;
+  return "Lift day — same six exercises, every week.";
 }
 /* A send counts as a try too (bumpGrade keeps attempts[g] in sync with sends as you log),
    so per-grade total tries is max(sends at g, attempts at g) rather than a raw sum — that
@@ -935,6 +826,12 @@ function dateFromDaysAgo(n){
   const d=new Date(); d.setDate(d.getDate()-n);
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
+// Same DST-safe setDate() approach as dateFromDaysAgo, but offset from an arbitrary date
+// rather than always from today — used for shifting phaseStartDate around.
+function addDays(dateStr,n){
+  const d=new Date(dateStr+"T12:00:00"); d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
 const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function prettyDate(s){ return new Date(s+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}); }
@@ -981,7 +878,7 @@ function detailOf(s){
 
 /* ============================ state ============================ */
 let store, saveError=false, loadError=false;
-const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, planSlotsOpen:false, progOpen:{targets:false,trends:false,recovery:false,strength:false,data:false}, celebrate:null, timer:null, restTimer:null, logStartedAt:null, selectedSlot:null, calMonth:{year:new Date().getFullYear(), month:new Date().getMonth()}, calSelectedDate:todayStr() };
+const ui = { tab:"plan", form:blankForm(), flash:false, copied:false, backed:false, confirmDel:null, pendingImport:null, importError:null, phaseInfoOpen:false, chartTap:null, editingId:null, planPosOpen:false, progressUndo:null, rawEditOpen:false, rawEditText:null, rawEditError:null, rawEditSaved:false, gradeExpanded:false, logMoreOpen:false, progOpen:{targets:false,trends:false,recovery:false,strength:false,data:false}, celebrate:null, timer:null, restTimer:null, logStartedAt:null, calMonth:{year:new Date().getFullYear(), month:new Date().getMonth()}, calSelectedDate:todayStr() };
 let mobilityTimerHandle=null;
 function clearMobilityTimerHandle(){ if(mobilityTimerHandle){ clearInterval(mobilityTimerHandle); mobilityTimerHandle=null; } }
 function resetMobilityTimer(){ clearMobilityTimerHandle(); ui.timer=null; }
@@ -1048,7 +945,7 @@ function setProgressUndo(){
 function blankForm(){
   return { type:"climb", date:todayStr(), grades:[], attempts:{}, protocol:"abrahangs", edge:20, grip:"half",
     addedLb:0, sets:5, entries:blankLiftEntries(), finger:"good", effort:null, notes:"",
-    sleep:null, soreness:null, gradeRole:null, mobilityDone:[], abraDone:[], abraHcLb:0, abraDragLb:0, bwVal:"", hangVal:"", pullVal:"" };
+    sleep:null, soreness:null, mobilityDone:[], abraDone:[], abraHcLb:0, abraDragLb:0, bwVal:"", hangVal:"", pullVal:"" };
 }
 /* Applies data-driven suggestions to a form — only safe to call once `store` is loaded. */
 function applySuggestions(f){
@@ -1065,14 +962,12 @@ function applySuggestions(f){
         reps: r.reps===""?String(targetReps):r.reps}));
     });
   }
-  if(f.type==="climb" && !f.gradeRole) f.gradeRole="volume";
   return f;
 }
-function freshForm(type,protocol,gradeRole){
+function freshForm(type,protocol){
   const f=blankForm();
   if(type) f.type=type;
   if(protocol) f.protocol=protocol;
-  if(gradeRole) f.gradeRole=gradeRole;
   return applySuggestions(f);
 }
 function deepMerge(base,override){
@@ -1094,6 +989,14 @@ function load(){
     try{ if(raw) localStorage.setItem(KEY+"-corrupt-backup", raw); }catch{}
     store={...DEFAULTS};
     loadError=true;
+  }
+  // Migrate the old slot-based progress shape ({phaseIdx,weekInPhase,slot}) to the calendar-
+  // based one ({phaseIdx,phaseStartDate}) — approximate a start date from the old weekInPhase
+  // count so existing users don't lose their rough phase position; slot/completedCycle have no
+  // equivalent in the new model and are just dropped.
+  if(!store.progress?.phaseStartDate){
+    const wk=store.progress?.weekInPhase||1;
+    store.progress={phaseIdx:store.progress?.phaseIdx||0, phaseStartDate:dateFromDaysAgo((wk-1)*7)};
   }
 }
 function save(){
@@ -1154,23 +1057,48 @@ function errBanner(){
 
 function renderPlan(){
   const cur=currentProgress();
-  const {phase,slots,slot,weekInPhase,absWeek,isDeload,gate,held,cap}=cur;
-  const next=resolveSlotText(cur.next);
-  // A manual pick from the workout list is purely a display choice — it changes what the
-  // card shows and what "Log this session" pre-fills, but never touches store.progress
-  // (which day of the plan you're actually on).
-  const displaySlot = (ui.selectedSlot!=null && slots[ui.selectedSlot]) ? resolveSlotText(slots[ui.selectedSlot]) : next;
+  const {phase,weekInPhase,absWeek,isDeload,gate,held,cap}=cur;
   const warnings=computeGuardrails(store);
   const pct=Math.min(100,Math.round((absWeek/TOTAL_WEEKS)*100));
-  const complete = (store.progress||{}).completedCycle;
   const lastSession=realSessions().sort((a,b)=>a.date<b.date?1:-1)[0];
   const daysSince = lastSession ? dayDiff(todayStr(),lastSession.date) : null;
   const lastText = daysSince==null ? "No sessions logged yet" :
     daysSince<=0 ? "Last session: today" :
     `Last session: ${daysSince} day${daysSince===1?"":"s"} ago`;
-  const typeIcon={climb:I.climb,hang:I.hang,lift:I.lift,mobility:I.mobility};
-  const insight=sessionInsight(displaySlot);
   const mobilityDoneToday=realSessions().some(s=>s.type==="mobility"&&s.date===todayStr());
+  // Climb and Lift are both generic, always-available log entries now — no prescribed
+  // sub-focus/slot, just "last done X days ago" + a contextual insight line, same tap-through-
+  // to-Log pattern as Mobility/Hangboard below.
+  const lastClimb=realSessions().filter(s=>s.type==="climb").sort((a,b)=>a.date<b.date?1:-1)[0];
+  const climbDaysSince = lastClimb ? dayDiff(todayStr(),lastClimb.date) : null;
+  const climbSubtitle = climbDaysSince==null ? "Not logged yet" :
+    climbDaysSince<=0 ? "Logged today" : `Last climbed ${climbDaysSince} day${climbDaysSince===1?"":"s"} ago`;
+  const climbRow=`<div class="field">
+    <div class="liftrow" id="climbCard" style="cursor:pointer;border:1px solid var(--line);background:var(--panel)">
+      <span class="hicon">${I.climb}</span>
+      <span style="flex:1">
+        <div style="font-weight:800;font-size:14px;color:var(--ink)">Climb</div>
+        <div class="hint" style="margin-top:2px">${esc(climbSubtitle)} · ${esc(climbInsight())}</div>
+      </span>
+      <span style="color:var(--faint);display:flex">${I.chev}</span>
+    </div>
+  </div>`;
+
+  const lastLift=realSessions().filter(s=>s.type==="lift").sort((a,b)=>a.date<b.date?1:-1)[0];
+  const liftDaysSince = lastLift ? dayDiff(todayStr(),lastLift.date) : null;
+  const liftSubtitle = liftDaysSince==null ? "Not logged yet" :
+    liftDaysSince<=0 ? "Logged today" : `Last lifted ${liftDaysSince} day${liftDaysSince===1?"":"s"} ago`;
+  const liftRow=`<div class="field">
+    <div class="liftrow" id="liftCard" style="cursor:pointer;border:1px solid var(--line);background:var(--panel)">
+      <span class="hicon">${I.lift}</span>
+      <span style="flex:1">
+        <div style="font-weight:800;font-size:14px;color:var(--ink)">Lift</div>
+        <div class="hint" style="margin-top:2px">${esc(liftSubtitle)} · ${esc(liftInsight())}</div>
+      </span>
+      <span style="color:var(--faint);display:flex">${I.chev}</span>
+    </div>
+  </div>`;
+
   const mobilityRow=`<div class="field">
     <div class="liftrow" id="mobilityCard" style="cursor:pointer;
       border:1px solid ${mobilityDoneToday?"var(--mobility)":"var(--line)"};
@@ -1223,40 +1151,6 @@ function renderPlan(){
     return `<div style="background:${bg};color:${fg};border-radius:12px;border-left:4px solid ${border};padding:12px 14px;font-size:13px;margin-bottom:8px;line-height:1.4;">${glyph}${esc(w.text)}</div>`;
   }).join("")}</div>` : "";
 
-  const pickerCard = `<div class="field">
-      <div class="stack" style="gap:0;padding:10px 14px">
-        <div id="pickerClose" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:4px">
-          <span class="flabel" style="margin:0">Choose a workout — ${esc(phase.name)}</span>
-          <span style="color:var(--faint);transform:rotate(90deg);transition:transform .15s">${I.chev}</span>
-        </div>
-        ${slots.map((s,i)=>{
-          const border=i<slots.length-1?"border-bottom:1px solid var(--line);":"";
-          const isSelected = i===(ui.selectedSlot!=null?ui.selectedSlot:slot);
-          return `<div data-picklot="${i}" style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer;${border}">
-            <span class="hicon" style="width:20px;justify-content:center;color:${isSelected?"var(--ink)":"var(--faint)"}">${typeIcon[s.type]}</span>
-            <span style="flex:1;font-size:13px;color:${isSelected?"var(--ink)":"var(--faint)"}">${esc(s.label)}</span>
-          </div>`;
-        }).join("")}
-      </div>
-    </div>`;
-  const upNextCard = complete ? `<div class="field">
-      <div class="stack"><div class="hint">Cycle complete. Reassess limiter, restart strength block.</div></div></div>`
-    : ui.planSlotsOpen ? pickerCard
-    : `<div class="field">
-      <div class="stack">
-        <div id="upNextTap" style="display:flex;align-items:center;gap:12px;cursor:pointer">
-          <span class="hicon">${typeIcon[displaySlot.type]}</span>
-          <div style="flex:1">
-            <div style="font-weight:800;font-size:15px">${esc(displaySlot.label)}</div>
-            ${displaySlot.detail?`<div class="hint" style="margin-top:4px">${esc(displaySlot.detail)}</div>`:""}
-          </div>
-          <span style="color:var(--faint)">${I.chev}</span>
-        </div>
-        ${insight?`<div class="hint" style="color:var(--accent);font-weight:600">${esc(insight)}</div>`:""}
-        <button class="btn2" id="logToday" style="margin:0">${I.plus}Log this session</button>
-      </div>
-    </div>`;
-
   const phaseInfoOpen=ui.phaseInfoOpen;
   const phaseCard=`<div class="cur" style="padding:${phaseInfoOpen?"18px 16px":"12px 16px"}">
       <div id="phaseInfoTap" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer">
@@ -1295,7 +1189,8 @@ function renderPlan(){
   return errBanner()+`
     ${phaseCard}
     ${isDeload?`<div class="field"><div style="background:#22303A;color:var(--accent);border-radius:12px;padding:12px 14px;font-size:13px;">Deload week: halve hangboard/lift volume.</div></div>`:""}
-    ${upNextCard}
+    ${climbRow}
+    ${liftRow}
     ${mobilityRow}
     ${abraRow}
     ${caloriesRow}
@@ -1329,8 +1224,7 @@ function renderLog(){
 
   let body="";
   if(f.type==="climb"){
-    const role=f.gradeRole||"volume";
-    const [lo,hi]=gradeRangeFor(role);
+    const [lo,hi]=gradeRangeFor();
     const maxG=Math.max(11,(store.settings.targetGrade??8)+3);
     // Default to a narrow window around today's target band so you're not scanning 24 cards —
     // but never hide a grade that already has a logged count, and let "show all" override.
@@ -1392,7 +1286,7 @@ function renderLog(){
       </div>`;
     };
     body=`<div class="field"><div class="flabel">Sends &amp; attempts by grade</div>
-      <div class="hint" style="margin-bottom:8px">Target: <strong style="color:var(--accent)">${gradeRangeText(role)}</strong></div>
+      <div class="hint" style="margin-bottom:8px">Comfortable range: <strong style="color:var(--accent)">${gradeRangeText()}</strong></div>
       <div class="gcombogrid">${range.map(g=>gradeCard(g)).join("")}</div>
       <div class="hint" style="margin-top:8px"><span id="gradeExpandToggle" style="text-decoration:underline;cursor:pointer">${ui.gradeExpanded?"Show fewer grades":`Show all grades (V0–V${maxG})`}</span></div>
       </div>`;
@@ -1508,21 +1402,14 @@ function renderLog(){
     ${editing?`<div class="hint" style="text-align:center;margin-top:10px"><span id="cancelEdit" style="text-decoration:underline;cursor:pointer">Cancel edit</span></div>`:""}`;
 
   const isBench=f.type==="benchmarks";
-  const matchSlot=findMatchingSlot(f);
-  // Trigger pre-session, from the plan's target intensity for this slot — not only post-hoc
-  // once effort/RPE gets logged after the fact, which is backwards for an injury-prevention prompt.
-  const highIntensity = !isBench && ((matchSlot?.targetRpe??0)>=8 || (f.type==="hang"&&f.protocol==="max") || f.effort==="hard" || f.effort==="max");
+  // No more prescribed "next session" to compare against — the warm-up prompt is purely
+  // reactive now, off Max Hang protocol or a self-reported Hard/Max effort selection.
+  const highIntensity = !isBench && ((f.type==="hang"&&f.protocol==="max") || f.effort==="hard" || f.effort==="max");
   const warmup = highIntensity ? `<div class="field">
       <div style="background:#22303A;border-radius:12px;padding:12px 14px;">
         <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">Warm up first</div>
         <div class="hint" style="line-height:1.5">10-15min easy climbing. Load ramp: 50%→70%→90% before your first hard attempt.</div>
       </div></div>` : "";
-
-  const info=(!isBench && matchSlot)?resolveSlotText(matchSlot):null;
-  const infoCard=info?`<div class="field"><div style="background:var(--panel2);border-radius:12px;padding:12px 14px;">
-      <div style="font-size:13px;color:var(--ink);font-weight:700;margin-bottom:6px">${esc(info.label)} — ${esc(currentProgress().phase.name)}</div>
-      <div class="hint" style="line-height:1.5">${esc(info.full||info.detail||"")}</div>
-    </div></div>`:"";
 
   return errBanner()+`
     ${editing?`<div class="hint" style="margin-bottom:10px">Editing: save will overwrite this session.</div>`
@@ -1538,7 +1425,7 @@ function renderLog(){
       <input type="date" id="date" value="${f.date}">
     </div>
     <div class="rule"></div>
-    ${infoCard}${warmup}${body}${isBench?"":finger}${isBench?"":moreToggle}${isBench?"":moreBody}${saveBtn}`;
+    ${warmup}${body}${isBench?"":finger}${isBench?"":moreToggle}${isBench?"":moreBody}${saveBtn}`;
 }
 
 function stepper(lab,key,val,suf){
@@ -2371,9 +2258,12 @@ function commitBenchmarks(){
   const f=ui.form;
   store.benchmarks=store.benchmarks||[];
   if(f.bwVal!==""){
-    store.settings.bodyweight=Number(f.bwVal);
-    store.settings.bodyweightSeeded=false;
     store.benchmarks.push({id:uid(),date:f.date,metric:"bodyweight",value:Number(f.bwVal)});
+    // The Log tab's date picker lets you backfill a past date — only treat this entry as
+    // "current" bodyweight if it's actually the most recent one, so backfilling an old
+    // weigh-in never clobbers store.settings.bodyweight with a stale value.
+    const latest=latestBenchmark("bodyweight");
+    if(latest){ store.settings.bodyweight=latest.value; store.settings.bodyweightSeeded=false; }
   }
   if(f.hangVal!=="") store.benchmarks.push({id:uid(),date:f.date,metric:"hang",value:Number(f.hangVal)});
   if(f.pullVal!=="") store.benchmarks.push({id:uid(),date:f.date,metric:"pull",value:Number(f.pullVal)});
@@ -2417,21 +2307,11 @@ function commitSave(){
     const idx=store.sessions.findIndex(x=>x.id===ui.editingId);
     if(idx>=0) store.sessions[idx]=s; else store.sessions.push(s);
   } else {
-    // Compare against the slot matching what was actually logged, not the "next" pointer —
-    // out-of-order logging is explicitly allowed, so those can diverge.
-    const plannedTarget=findMatchingSlot(f)?.targetRpe;
-    if(plannedTarget!=null && s.rpe!=null && s.rpe-plannedTarget>=2){
-      s.intensityFlag={target:plannedTarget, actual:s.rpe};
-    }
     // Celebration detection — only on a genuinely new log, never on an edit, so backfilling/
     // correcting old sessions never triggers a fake "new PR" moment.
     let priorHardestEver=-1;
     realSessions().forEach(x=>(x.grades||[]).forEach(g=>{ if(g>priorHardestEver) priorHardestEver=g; }));
     store.sessions.push(s);
-    // Mobility and Abrahangs (a hang protocol, but a daily habit not tied to the phase's
-    // session-week rotation) both run parallel to the plan — logging either shouldn't advance
-    // the plan's slot pointer.
-    if(f.type!=="mobility" && !(f.type==="hang"&&f.protocol==="abrahangs")) advanceProgress();
     const newMax = (s.grades||[]).length ? Math.max(...s.grades) : -1;
     if(newMax>priorHardestEver && newMax>=0) ui.celebrate={...ui.celebrate, pr:newMax};
     if(MILESTONES.includes(realSessions().length)) ui.celebrate={...ui.celebrate, milestone:realSessions().length};
@@ -2441,7 +2321,7 @@ function commitSave(){
   ui.editingId=null;
   ui.form=freshForm(keepType); ui.form.date=keepDate;
   ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); resetRestTimer();
-  ui.selectedSlot=null; ui.logStartedAt=null;
+  ui.logStartedAt=null;
   ui.flash=true; render();
   setTimeout(()=>{ ui.flash=false; ui.celebrate=null; render(); },ui.celebrate?2800:2000);
 }
@@ -2575,12 +2455,17 @@ function wire(){
     const s=store.sessions.find(x=>x.id===card.dataset.edit); if(!s)return;
     ui.editingId=s.id; ui.form=loadSessionIntoForm(s); ui.tab="log"; ui.gradeExpanded=false; ui.logMoreOpen=false; resetMobilityTimer(); resetRestTimer(); render();
   });
-  // plan tab
-  const lt=$main.querySelector("#logToday"); if(lt) lt.onclick=()=>{
-    const cur=currentProgress();
-    const chosen = (ui.selectedSlot!=null && cur.slots[ui.selectedSlot]) ? cur.slots[ui.selectedSlot] : cur.next;
+  // plan tab — Climb/Lift are generic entry points now (same tap-through-to-Log pattern as
+  // Mobility/Hangboard below), no prescribed slot to resolve first.
+  const cc2=$main.querySelector("#climbCard"); if(cc2) cc2.onclick=()=>{
     ui.editingId=null;
-    ui.form=freshForm(chosen.type, chosen.protocol, chosen.gradeRole);
+    ui.form=freshForm("climb");
+    ui.gradeExpanded=false; ui.logMoreOpen=false; ui.logStartedAt=null;
+    ui.tab="log"; render();
+  };
+  const lc=$main.querySelector("#liftCard"); if(lc) lc.onclick=()=>{
+    ui.editingId=null;
+    ui.form=freshForm("lift");
     ui.gradeExpanded=false; ui.logMoreOpen=false; ui.logStartedAt=null;
     ui.tab="log"; render();
   };
@@ -2632,7 +2517,12 @@ function wire(){
   };
   const cbw=$main.querySelector("#calBw"); if(cbw) cbw.onchange=e=>{
     upsertBenchmark("bodyweight", ui.calSelectedDate, e.target.value);
-    if(e.target.value!=="") store.settings.bodyweight=Number(e.target.value);
+    // Backfilling/editing/clearing a past date's weigh-in shouldn't blindly become "current"
+    // bodyweight — re-derive it from whichever entry is now actually the most recent one
+    // (or null if none are left), same fix as the Log tab's Benchmarks form.
+    const latest=latestBenchmark("bodyweight");
+    store.settings.bodyweight=latest?latest.value:null;
+    store.settings.bodyweightSeeded=false;
     save(); render();
   };
   const chg=$main.querySelector("#calHang"); if(chg) chg.onchange=e=>{
@@ -2641,22 +2531,7 @@ function wire(){
   const cpl=$main.querySelector("#calPull"); if(cpl) cpl.onchange=e=>{
     upsertBenchmark("pull", ui.calSelectedDate, e.target.value); save(); render();
   };
-  const unt=$main.querySelector("#upNextTap"); if(unt) unt.onclick=()=>{ ui.planSlotsOpen=true; render(); };
-  const pkc=$main.querySelector("#pickerClose"); if(pkc) pkc.onclick=()=>{ ui.planSlotsOpen=false; render(); };
   const pit=$main.querySelector("#phaseInfoTap"); if(pit) pit.onclick=()=>{ ui.phaseInfoOpen=!ui.phaseInfoOpen; render(); };
-  // workout picker — choosing a slot repositions the plan pointer to it and updates the
-  // Up Next card in place; it does not navigate to the Log tab.
-  // Choosing a workout here is just "what am I doing right now" — it opens the Log tab
-  // pre-filled for that slot's type/protocol/gradeRole. It does not touch store.progress:
-  // picking an option isn't the same as declaring which day of the plan you're on.
-  // Picking a workout here is a display-only choice — it just changes what the Up Next
-  // card shows and what "Log this session" will pre-fill. It never touches store.progress
-  // and never navigates to the Log tab on its own.
-  $main.querySelectorAll("[data-picklot]").forEach(row=>row.onclick=()=>{
-    ui.selectedSlot=+row.dataset.picklot;
-    ui.planSlotsOpen=false;
-    render();
-  });
   // manual phase/week override
   const pp=$main.querySelector('[data-planpos="toggle"]'); if(pp) pp.onclick=()=>{ ui.planPosOpen=true; render(); };
   const ppc=$main.querySelector('[data-planpos="close"]'); if(ppc) ppc.onclick=()=>{ ui.planPosOpen=false; render(); };
@@ -2664,13 +2539,15 @@ function wire(){
     const dir=+b.dataset.phasestep, cur=currentProgress();
     const newIdx=Math.max(0,Math.min(PHASES.length-1,cur.phaseIdx+dir));
     setProgressUndo();
-    store.progress={phaseIdx:newIdx, weekInPhase:1, slot:0}; ui.selectedSlot=null; save(); render();
+    store.progress={phaseIdx:newIdx, phaseStartDate:todayStr()}; save(); render();
   });
+  // Week-in-phase is derived from phaseStartDate now (calendar time elapsed), so nudging it
+  // means shifting phaseStartDate itself — earlier moves weekInPhase up, later moves it back.
   $main.querySelectorAll("[data-weekstep]").forEach(b=>b.onclick=()=>{
     const dir=+b.dataset.weekstep, cur=currentProgress();
     const newWk=Math.max(1,Math.min(cur.phase.weeks,cur.weekInPhase+dir));
     setProgressUndo();
-    store.progress={phaseIdx:cur.phaseIdx, weekInPhase:newWk, slot:0}; ui.selectedSlot=null; save(); render();
+    store.progress={phaseIdx:cur.phaseIdx, phaseStartDate:addDays(cur.phaseStartDate,(cur.weekInPhase-newWk)*7)}; save(); render();
   });
   const up=$main.querySelector("#undoProgress"); if(up) up.onclick=()=>{
     if(ui.progressUndo){ store.progress={...ui.progressUndo.progress}; ui.progressUndo=null; save(); render(); }
